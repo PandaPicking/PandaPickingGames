@@ -142,7 +142,7 @@ function canvasApp(){
 	var level2Complete = false;
 	var level3Complete = false;
 	var level4Complete = false;
-	var level5Complete = true;
+	var level5Complete = false;
 	var level6Complete = false;
 	function eventMouseMove(event) {
 		var x;
