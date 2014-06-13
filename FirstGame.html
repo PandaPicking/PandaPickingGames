@@ -1,0 +1,3468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title> My First Game </title>
+<!--<script type="text/javascript" src="keypress.js"></script>-->
+<script type="text/javascript">
+//What needs to get done.  Start screen.  Have a click to play and a click to see instructions.
+//Options menu.  character, immovable objects, etc....  Start with moving characters.  Remember
+//we need to have physics included in order to get the enemies to bounce from spells.
+//different Game States needed
+//game play screen.
+//Buy Item Screen.  Lose Screen
+window.addEventListener('load', eventWindowLoaded, false);	
+function eventWindowLoaded() {
+
+	canvasApp();
+	
+}
+
+
+function canvasApp(){
+
+
+
+	var theCanvas = document.getElementById('canvas');
+  	if (!theCanvas || !theCanvas.getContext) {
+    		return;
+  	}
+  
+  	var context = theCanvas.getContext('2d');
+ 	
+	if (!context) {
+   	 	return;
+  	}
+//All the needed Variables.
+	requestAnimationFrame = window.requestAnimationFrame || 
+							window.mozRequestAnimationFrame || 
+							window.webkitRequestAnimationFrame || 
+							window.msRequestAnimationFrame || 
+							setTimeout;
+	const Game_Title_Screen = 0;
+	const Game_Select_Screen = 1;
+	const Game_Play_Screen = 2;
+	const Game_Item_Screen = 3;
+	const Game_Lose_Screen = 4;
+	const Door_Transition = 5;
+	const Level_1 = 11;
+	const Level_2 = 12;
+	const Level_3 = 13;
+	const Level_4 = 14;
+	const Level_5 = 15;
+	const Level_6 = 16;
+	const Instruction = 99;
+	var currentGameState = 0;
+	var currentGameStateFunction = null;
+	var titleStarted = false;
+	var gameOverStarted = false;
+	var Player1hp = 100;
+	var Player2hp = 100;
+	var Player1hpMax = 100; 
+	var Player2hpMax = 100;
+	//Basic start
+	var level = 0;
+	var player1Level = 1;
+	var player2Level = 1;
+	var Gold = 50000;
+	//Basic Environment
+	var mouseX;
+	var mouseY;
+	var minx = 0;
+	var miny = 0;
+	var maxx = 1250;
+	var maxy = 600;
+	//Gold given
+	var lowestGold = 10;
+	var mediumGold = 25;
+	var highGold = 50;
+	var bossGold = 100;
+	//Create Object Arrays
+	//Player1 specs
+	var player1 = {};
+	player1.maxVelocity = 5;
+	player1.rotationalVelocity=5; //how many degrees to turn the ship
+	player1.thrustAcceleration=.05;
+	//Player2 Specs
+	var player2 = {};
+	player2.maxVelocity = 5;
+	player2.rotationalVelocity=5; //how many degrees to turn the ship
+	player2.thrustAcceleration=.05;
+	//Other
+	var playerMissles = [];
+	var playerParticles = [];
+	var enemyMissles = [];
+	var enemyParticles = [];
+	var enemies = [];
+	//Level Specifics
+	var enemySpeed = 3;
+	//KeyPress, movement, and all spells.
+	var keyPressList=[];
+	//coordinates of mouse
+	var mouseX = 0;
+	var mouseY = 0;
+	//extra transitions
+	var backgroundRendered = false;
+	var minOpacity = 0;
+	var maxOpacity = .15;
+	var Opacity = 0;
+	var Opacitydx = .1;
+	var transition = true;
+	//var door1x = -625;
+	var door1x = 0;
+	var door2x = 1250;
+	var door1dx = 10;
+	var door2dx = -10;	//Player1 Specs
+	var Player1x = 50;
+	var Player1y = 50;
+	var angleInRadians = 0;
+	var Player1Facingx = 0;
+	var Player1Facingy = 0;
+	var Player1Movingx = 0;
+	var Player1Movingy = 0;
+	var Player1dead = false;
+	var Player2dead = false;
+	var rotation1 = 0;
+	var Player1Velocity = 5;
+	var rotationalVelocity = 4;
+	var width = 20;
+	var height = 20;
+	//Player2 Specs
+	var Player2x = 50;
+	var Player2y = 75;
+	var Player2Facingx = 0;
+	var Player2Facingy = 0;
+	var Player2Movingx = 0;
+	var Player2Movingy = 0;
+	var rotation2 = 0;
+	var Player2Velocity = 5;
+	var immovable = [];
+	var goldEarned = 0;
+	var level1Complete = true;
+	var level2Complete = true;
+	var level3Complete = true;
+	var level4Complete = true;
+	var level5Complete = true;
+	var level6Complete = true;
+	function eventMouseMove(event) {
+		var x;
+   	 	var y;
+    	if (event.pageX || event.pageY) {
+      		x = event.pageX;
+      		y = event.pageY;
+    	}
+    	else {
+     		x = e.clientX + document.body.scrollLeft +
+           document.documentElement.scrollLeft;
+      		y = e.clientY + document.body.scrollTop +
+           document.documentElement.scrollTop;
+    	}
+		x -= theCanvas.offsetLeft;
+		y -= theCanvas.offsetTop;
+			
+		mouseX=x;
+		mouseY=y;
+	}
+	theCanvas.addEventListener("mousemove",eventMouseMove, false);
+	
+//The Start of all the Functions
+	function runGame(){
+		currentGameStateFunction();
+	}
+	
+	function switchGameState(newState) {
+		currentGameState=newState;
+		switch (currentGameState) {
+			case Game_Title_Screen:
+				currentGameStateFunction = gameTitleScreen;
+				break;
+			case Game_Select_Screen:
+				currentGameStateFunction = gameSelectScreen;
+				break;
+			case Game_Play_Screen:
+				currentGameStateFunction = gamePlayScreen;
+				break;
+			case Game_Item_Screen:
+				Opacity = 0;
+				currentGameStateFunction = gameItemScreen;
+				break;
+			case Game_Lose_Screen:
+				currentGameStateFunction = gameLoseScreen;
+				break;
+			case Door_Transition:
+				currentGameStateFunction = doorTransition;
+				break;
+			case Level_1:
+				currentGameStateFunction = Level1;
+				break;
+			case Level_2:
+				currentGameStateFunction = level2;
+				break;
+			case Level_3:
+				currentGameStateFunction = level3;
+				break;
+			case Level_4:
+				currentGameStateFunction = level4;
+				break;
+			case Level_5:
+				currentGameStateFunction = level5;
+				break;
+			case Level_6:
+				currentGameStateFunction = level6;
+				break;
+			case Instruction:
+				currentGameStateFunction = Instructions;
+				break;
+		}
+	}
+
+	function gameTitleScreen(){
+		if (titleStarted != true){
+			var background = new Image();
+			background.src = 'TitleScreenBackground.jpg';
+			background.onload = function() {
+				context.drawImage(background, 0, 0, maxx, maxy);   
+				setTextStyle();
+				context.fillText ("My First Game", 570, 140);
+				context.fillText ("Press Space To Play", 550, 210);
+				context.fillText ("Press I for Instructions", 545, 235);	
+			}	
+			titleStarted = true;
+		}else{
+			//wait for space key click
+			if (keyPressList[32]==true){
+				ConsoleLog.log("space pressed");
+				switchGameState(Door_Transition);
+				titleStarted=false;
+			}
+			else if (keyPressList[73] == true){
+				switchGameState(Instruction);
+				titleStarted = false;
+			}	
+		}
+	}
+	function Instructions(){
+		context.fillStyle = "black";
+		context.fillRect(0,0,maxx,maxy);  
+		context.fillStyle = "white";
+		context.fillText("Press esc to go back to the title Screen", 0, 0);
+		context.fillText("My first game is a two player game with pretty basic controls. In order to move first Player (white) press the arrow keys.", 175, 75);
+		context.fillText("Pressing left or right will rotate the player and pressing up or down will make the player move towards the way he is facing or away ", 75, 105);
+		context.fillText('from the way he is facing. The controls are the same for Player two (blue) except "E" is up "D" is down "F" is right and "S" is left.', 75, 135);
+		context.fillText('In order to shoot, press "]" if you are Player1 and "5" if you are Player2.  This is the most basic spell and has a 1 second',175, 165);
+		context.fillText("cooldown. All your bullets will push back minions, but not bosses.  When you kill any enemy, you will gain gold where you can learn ",75, 195);
+		context.fillText("some fancy tricks and spells. The only fancy thing you need to know right now is double tapping the left or right keys will make you turn", 75, 225);
+		context.fillText("around 180 degrees. Lastly all your spells will disappear on walls and immovable objects (Black Rectangles).", 75, 255);
+		context.fillText("Thank you for playing and have fun!", 75, 300);
+		if (keyPressList[27]==true){
+			switchGameState(Game_Title_Screen);
+			titleStarted = false;
+		}
+	}
+	function doorTransition(){
+		door1x += 15;
+		door2x += -15;
+		backgroundRendered = false;
+		//door1x += door1dx;
+		//door2x += door2dx;
+		if (transition == true){
+			//var door1 = new Image();
+			//var door2 = new Image();
+			//door1.src = "SlidingTransition.png";
+			//door2.src = "SlidingTransition.png";
+			//door2.onload = function(){
+			//	context.drawImage(door2, door2x, 0, 640, 600);
+			//}
+			//door1.onload = function(){
+			//	context.drawImage(door1, door1x, 0, 640, 600);
+			//}
+			context.fillStyle = "black";
+			context.fillRect(0,0,door1x, 600);
+			context.fillRect(door2x, 0, 625, 600);
+		}
+		//if (door1x >= 0 && door2x <= 625){
+		if (door1x >=625 && door2x <=625){
+			door1x = 0;
+			door2x = 1250;
+			switchGameState(Game_Select_Screen);
+		}
+	}
+	
+	var EventMade = false;
+	var level1play = true;
+	var level2play = false;
+	var level3play = false;
+	function gameSelectScreen(){
+		if (backgroundRendered == false){
+			var background = new Image();
+			background.src = "SelectMap.jpg";
+			background.onload = function() {
+				Opacity += .05;
+				context.globalAlpha = Opacity;
+				context.drawImage(background, 0, 0);
+				setTextStyle();
+				context.fillText ("Shop", 1017, 150);
+				context.fillStyle = "yellow";
+				context.beginPath();
+				context.arc(95, 375, 7, 0, 2 * Math.PI, false);
+				context.fill();
+				context.lineWidth = 2;
+				context.strokeStyle = "#FF9900";
+				context.stroke();
+				context.closePath();
+				if (level1Complete == true){
+					context.fillStyle = "yellow";
+					context.beginPath();
+					context.arc(225, 200, 7, 0, 2*Math.PI, false);
+					context.fill();
+					context.lineWidth = 2;
+					context.strokeStyle = "#FF9900";
+					context.stroke();
+				}
+				if (level2Complete == true){
+					context.fillStyle = "yellow";
+					context.beginPath();
+					context.arc(425, 400, 7, 0, 2*Math.PI, false);
+					context.fill();
+					context.lineWidth = 2;
+					context.strokeStyle = "#FF9900";
+					context.stroke();
+					context.closePath();
+				}
+				if (level3Complete == true){
+					context.fillStyle = "yellow";
+					context.beginPath();
+					context.arc(600, 300, 7, 0, 2*Math.PI, false);
+					context.fill();
+					context.lineWidth = 2;
+					context.strokeStyle = "#FF9900";
+					context.stroke();
+					context.closePath();
+				}
+				if (level4Complete == true){
+					context.fillStyle = "yellow";
+					context.beginPath();
+					context.arc(675, 150, 7, 0, 2*Math.PI, false);
+					context.fill();
+					context.lineWidth = 2;
+					context.strokeStyle = "#FF9900";
+					context.stroke();
+					context.closePath();
+				}
+				if (level5Complete == true){
+					var level6SelectScreen = new Image();
+					level6SelectScreen.src  = "Level6.jpg";
+					level6SelectScreen.onload = function(){
+						context.drawImage(level6SelectScreen, 450, 100, 50, 60);
+					}
+				}
+				if (EventMade == false){
+					theCanvas.addEventListener('mouseup', onclickShop, false);
+					if (level1play == true){
+						theCanvas.addEventListener('mouseup', onclickLevel1, false);
+					}
+					if (level1Complete == true){
+						theCanvas.addEventListener('mouseup', onclickLevel2, false);
+					}
+					if (level2Complete == true){
+						theCanvas.addEventListener('mouseup', onclickLevel3, false);
+					}
+					if (level3Complete == true){
+						theCanvas.addEventListener('mouseup', onclickLevel4, false);
+					}
+					if (level4Complete == true){
+						theCanvas.addEventListener('mouseup', onclickLevel5, false);
+					}
+					if (level5Complete == true){
+						theCanvas.addEventListener('mouseup', onclickLevel6, false);
+					}
+					EventMade = true;
+				}
+				if(Opacity >= 1){
+					backgroundRendered = true;
+				}
+				var money = new Image();
+				money.src = "GoldBag.png";
+				money.onload = function(){
+					context.drawImage(money, 960, 550, 15, 15);
+					context.fillStyle = "yellow";
+					context.font = '15px sans-serif';
+					context.fillText (Gold, 990,550);
+					context.font = '20px sans-serif';
+				}
+			}
+		}
+	}
+	
+	function onclickShop(){
+		if (mouseX < 1117 && mouseX > 1066 && mouseY < 220 && mouseY > 200){
+			backgroundRendered = false;
+			theCanvas.removeEventListener('mouseup', onclickShop, false);
+			if (level1play == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel1, false);
+			}
+			if (level1Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel2, false);
+			}
+			if (level2Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel3, false);
+			}
+			if (level3Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel4, false);
+			}
+			if (level4Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel5, false);
+			}
+			if (level5Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel6, false);
+			}
+			switchGameState(Game_Item_Screen);
+		}
+	}
+	function gameItemScreen(){
+		texts.splice(0, texts.length);
+		if (backgroundRendered != true) {
+			var border = new Image();
+			border.src = "woodenBorder.jpg";
+			border.onload = function() {
+				var pattern = context.createPattern(border, 'repeat');
+				context.strokeStyle = pattern;
+				context.lineWidth = 10;
+				context.fillStyle = "brown";
+				context.globalAlpha= Opacity;
+				context.strokeRect(25,25,1200,550);
+				context.fillRect(25,25, 1200, 550);
+				context.lineWidth = 5;
+				context.strokeRect(450, 75, 350, 100);
+				context.strokeRect(75, 75, 350, 100);
+				context.strokeRect(825, 75, 350, 100);
+				context.strokeRect(75, 200, 350, 100);
+				context.strokeRect(450, 200, 350, 100);
+				context.fillStyle = "red";
+				context.fillRect(1215, 20,15, 15);
+				context.fillStyle = "#ffffff";
+				context.fillText("X", 1215, 16);
+				var money = new Image();
+				money.src = "GoldBag.png";
+				money.onload = function(){
+					context.globalAlpha = 1;
+					context.drawImage(money, 960, 550, 15, 15);
+					context.globalAlpha=Opacity;
+				}				
+				if (Opacity <= 1){
+					Opacity = Opacity + Opacitydx;
+				}
+				if (Opacity >= 1){
+					backgroundRendered = true;
+					theCanvas.addEventListener("mousemove", itemHover, false);
+					theCanvas.addEventListener('mouseup', itemBuy, false);
+					theCanvas.addEventListener('mouseup', exitShop, false);
+				}
+			}
+		}
+		context.fillStyle = "brown";
+		context.fillRect(990, 450, 100, 115);
+		context.fillStyle = "yellow";
+		context.font = '15px sans-serif';
+		context.fillText (Gold, 990 ,550);
+		context.font = '20px sans-serif';
+		RenderTexts();
+	}
+	var itemShop = [];
+	var tempItem = {};
+	tempItem.x = 75;
+	tempItem.y = 75;
+	tempItem.bought = false;
+	tempItem.name = "Health Bonus Level 1";
+	tempItem.cost = 600;
+	tempItem.describe = "increase HP by 75";
+	tempItem.cd = 0;
+	itemShop.push(tempItem);
+	var tempItem = {};
+	tempItem.x = 450;
+	tempItem.y = 75;
+	tempItem.bought = false;
+	tempItem.name = "Scatter";
+	tempItem.cost = 1500;
+	tempItem.describe = "push '[' or '6' to do a spread attack";
+	tempItem.cd = 4;
+	itemShop.push(tempItem);
+	var tempItem = {};	
+	tempItem.x = 825;
+	tempItem.y = 75;
+	tempItem.bought = false;
+	tempItem.name = "Quick Step";
+	tempItem.cost = 1000;
+	tempItem.describe = "double tap up to quickly move forward ";
+	tempItem.cd = 4;
+	itemShop.push(tempItem);
+	var tempItem = {};
+	tempItem.x = 75;
+	tempItem.y = 200;
+	tempItem.bought = false;
+	tempItem.name = "Health Bonus Level 2";
+	tempItem.cost = 3000;
+	tempItem.describe = "increase HP by 100";
+	tempItem.cd = 0;
+	itemShop.push(tempItem);
+	var tempItem = {};
+	tempItem.x = 450;
+	tempItem.y = 200;
+	tempItem.bought = false;
+	tempItem.name = "Break";
+	tempItem.cost = 4000;
+	tempItem.describe = "push 'P' or '7' to push nearby enemies";
+	tempItem.cd = 5;
+	itemShop.push(tempItem);
+
+	function itemHover(){
+		for (var i = 0; i < itemShop.length; ++i){
+			if (itemShop[i].bought == true){
+				context.fillStyle = "rgba(0,0,0,.5)";
+				context.fillRect(itemShop[i].x, itemShop[i].y, 350, 100);
+				context.fillStyle = "red";
+				context.fillText("Sold", itemShop[i].x + 150, itemShop[i].y + 40); 
+			}
+			else if (mouseX > itemShop[i].x + 50 && mouseX < itemShop[i].x + 400 && mouseY > itemShop[i].y + 50 && mouseY < itemShop[i].y + 150){
+				context.fillStyle = "red";
+		       		context.fillRect(itemShop[i].x, itemShop[i].y, 350, 100);
+				context.fillStyle = "white";
+				context.fillText(itemShop[i].name, itemShop[i].x + 10, itemShop[i].y + 5);
+				context.fillText("Cost: " + itemShop[i].cost, itemShop[i].x + 10, itemShop[i].y + 25);
+				context.fillText(itemShop[i].describe, itemShop[i].x + 10, itemShop[i].y + 45);
+				context.fillText("cooldown: " + itemShop[i].cd + " seconds", itemShop[i].x + 10, itemShop[i].y + 65);
+			}
+			else{
+				context.fillStyle = "brown";
+				context.fillRect(itemShop[i].x, itemShop[i].y, 350, 100);
+				context.fillStyle = "white";
+				context.fillText(itemShop[i].name, itemShop[i].x + 10, itemShop[i].y + 5);
+				context.fillText("Cost: " + itemShop[i].cost, itemShop[i].x + 10, itemShop[i].y + 25);
+				context.fillText(itemShop[i].describe, itemShop[i].x + 10, itemShop[i].y + 45);
+				context.fillText("cooldown: " + itemShop[i].cd + " seconds", itemShop[i].x + 10, itemShop[i].y + 65);
+			}
+		}
+	}
+	function itemBuy(){
+		for (var i = 0; i < itemShop.length; ++i){
+			if (mouseX > itemShop[i].x + 50 && mouseX < itemShop[i].x + 400 && mouseY > itemShop[i].y + 50 && mouseY < itemShop[i].y + 150 &&
+			    itemShop[i].bought == false && Gold >= itemShop[i].cost){
+				context.fillStyle = "#000000";
+		       		context.fillRect(itemShop[i].x, itemShop[i].y, 350, 100);
+				itemShop[i].bought = true;
+				var tempTexts = {};
+				tempTexts.colorType = "black";
+				tempTexts.number = "- " + itemShop[i].cost;
+				tempTexts.life = 80;
+				tempTexts.x = 1000;
+				tempTexts.y = 540;
+				texts.push(tempTexts);
+				Gold -= itemShop[i].cost;
+				if (itemShop[i].name = "Health Bonus Level 1"){
+					Player1hpMax += 75;
+					Player2hpMax += 75;
+				}
+				if (itemShop[i].name = "Health Bonus Level 2"){
+					Player1hpMax += 100;
+					Player2hpMax += 100;
+				}
+			}
+		}
+	}
+	function exitShop(){
+		if (mouseX < 1280 && mouseX > 1265 && mouseY < 85 && mouseY > 70){
+			switchGameState(Game_Select_Screen);
+			EventMade = false;
+			theCanvas.removeEventListener('mouseup', exitShop, false);
+			theCanvas.removeEventListener('mousemove', itemHover, false);
+			theCanvas.removeEventListener('mouseup', itemBuy, false);
+			backgroundRendered = false;
+		}
+	}
+
+	function onclickLevel1(){
+		var pointX = mouseX - 145;
+		var pointY = mouseY - 425;
+		if(Math.sqrt(pointX*pointX + pointY*pointY) < 8){
+			enemies.splice(0,enemies.length);
+			immovable.splice(0,immovable.length);
+			enemyParticles.splice(0, enemyParticles.length);
+			switchGameState(Level_1);
+			backgroundRendered = false;
+			EventMade = false;
+			Player1x = 50;
+			Player1y = 50;
+			Player1hp = Player1hpMax;
+			Player2hp = Player2hpMax;
+			angleInRadians = 0;
+			angleInRadians = 0;
+			Player1Facingx = 0;
+			Player1Facingy = 0;
+			Player1Movingx = 0;
+			Player1Movingy = 0;
+			Player1dead = false;
+			Player2dead = false;
+			rotation1 = 0;
+			Player2x = 50;
+			Player2y = 75;
+			transition = true;
+			goldEarned = 0;
+			Player2Facingx = 0;
+			Player2Facingy = 0;
+			Player2Movingx = 0;
+			Player2Movingy = 0;
+			context.globalAlpha = 1;
+			rotation2 = 0;
+			Player2Velocity = 5;
+			StartLevel1 = true;
+			StartLevel2 = true;
+			StartLevel3 = true;
+			fireball1cd = 0;
+			fireball2cd = 0;
+			scatter1cd = 0;
+			scatter2cd = 0;
+			break1cd = 0;
+			break2cd = 0;
+			scatterNumber1 = 40;
+			scatterNumber2 = 40;
+			fireball1.splice(0, fireball1.length);
+			texts.splice(0, texts.length);
+			theCanvas.removeEventListener('mouseup', onclickLevel1, false);
+			theCanvas.removeEventListener('mouseup', onclickShop, false);
+			if (level1Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel2, false);
+			}
+			if (level2Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel3, false);
+			}
+			if (level3Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel4, false);
+			}
+			if (level4Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel5, false);
+			}
+			if (level5Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel6, false);
+			}
+		}
+	}
+	function onclickLevel2(){
+		var pointX = mouseX - 275;
+		var pointY = mouseY - 250;
+		if(Math.sqrt(pointX*pointX + pointY*pointY) < 8){
+			enemies.splice(0,enemies.length);
+			immovable.splice(0,immovable.length);
+			enemyParticles.splice(0, enemyParticles.length);
+			switchGameState(Level_2);
+			backgroundRendered = false;
+			EventMade = false;
+			transition = true;
+			Player1x = 50;
+			Player1y = 50;
+			Player1hp = Player1hpMax;
+			Player2hp = Player2hpMax;
+			angleInRadians = 0;
+			angleInRadians = 0;
+			Player1Facingx = 0;
+			Player1Facingy = 0;
+			Player1Movingx = 0;
+			Player1Movingy = 0;
+			Player1dead = false;
+			Player2dead = false;
+			rotation1 = 0;
+			Player2x = 50;
+			Player2y = 75;
+			goldEarned = 0;
+			Player2Facingx = 0;
+			Player2Facingy = 0;
+			Player2Movingx = 0;
+			Player2Movingy = 0;
+			rotation2 = 0;
+			Player2Velocity = 5;
+			StartLevel2 = true;
+			StartLevel1 = true;
+			StartLevel3 = true;
+			context.globalAlpha = 1;
+			fireball1cd = 0;
+			fireball2cd = 0;
+			scatter1cd = 0;
+			scatter2cd = 0;
+			break1cd = 0;
+			break2cd = 0;
+			scatterNumber1 = 40;
+			scatterNumber2 = 40;
+			fireball1.splice(0, fireball1.length);
+			texts.splice(0, texts.length);
+			theCanvas.removeEventListener('mouseup', onclickLevel1, false);
+			theCanvas.removeEventListener('mouseup', onclickShop, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel2, false);
+			if (level2Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel3,false);
+			}
+			if (level3Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel4, false);
+			}
+			if (level4Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel5, false);
+			}
+			if (level5Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel6, false);
+			}
+
+		}
+	}
+	function onclickLevel3(){
+		var pointX = mouseX - 475;
+		var pointY = mouseY - 450;
+		if(Math.sqrt(pointX*pointX + pointY*pointY) < 8){
+			enemies.splice(0, enemies.length);
+			immovable.splice(0,immovable.length);
+			enemyParticles.splice(0, enemyParticles.length);
+			switchGameState(Level_3);
+			backgroundRendered = false;
+			EventMade = false;
+			transition = true;
+			Player1x = 50;
+			Player1y = 550;
+			Player1hp = Player1hpMax;
+			Player2hp = Player2hpMax;
+			angleInRadians = 0;
+			angleInRadians = 0;
+			Player1Facingx = 0;
+			Player1Facingy = 0;
+			Player1Movingx = 0;
+			Player1Movingy = 0;
+			Player1dead = false;
+			Player2dead = false;
+			rotation1 = 0;
+			Player2x = 50;
+			Player2y = 500;
+			goldEarned = 0;
+			Player2Facingx = 0;
+			Player2Facingy = 0;
+			Player2Movingx = 0;
+			Player2Movingy = 0;
+			rotation2 = 0;
+			Player2Velocity = 5;
+			StartLevel2 = true;
+			StartLevel1 = true;
+			StartLevel3 = true;
+			context.globalAlpha = 1;
+			transitionRadius = 0;
+			fireball1cd = 0;
+			fireball2cd = 0;
+			scatter1cd = 0;
+			scatter2cd = 0;
+			break1cd = 0;
+			break2cd = 0;
+			scatterNumber1 = 40;
+			scatterNumber2 = 40;
+			fireball1.splice(0, fireball1.length);
+			texts.splice(0, texts.length);
+			boss1Started = false;
+			theCanvas.removeEventListener('mouseup', onclickLevel1, false);
+			theCanvas.removeEventListener('mouseup', onclickShop, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel2, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel3, false);
+			if (level3Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel4, false);
+			}
+			if (level4Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel5, false);
+			}
+			if (level5Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel6, false);
+			}
+		}
+	}
+	function onclickLevel4(){
+		var pointX = mouseX - 650;
+		var pointY = mouseY - 350;
+		if(Math.sqrt(pointX*pointX + pointY*pointY) < 8){
+			enemies.splice(0, enemies.length);
+			immovable.splice(0,immovable.length);
+			enemyParticles.splice(0, enemyParticles.length);
+			switchGameState(Level_4);
+			backgroundRendered = false;
+			EventMade = false;
+			transition = true;
+			Player1x = 50;
+			Player1y = 50;
+			Player1hp = Player1hpMax;
+			Player2hp = Player2hpMax;
+			angleInRadians = 0;
+			angleInRadians = 0;
+			Player1Facingx = 0;
+			Player1Facingy = 0;
+			Player1Movingx = 0;
+			Player1Movingy = 0;
+			Player1dead = false;
+			Player2dead = false;
+			rotation1 = 0;
+			Player2x = 50;
+			Player2y = 550;
+			goldEarned = 0;
+			Player2Facingx = 0;
+			Player2Facingy = 0;
+			Player2Movingx = 0;
+			Player2Movingy = 0;
+			rotation2 = 0;
+			Player2Velocity = 5;
+			StartLevel2 = true;
+			StartLevel1 = true;
+			StartLevel3 = true;
+			context.globalAlpha = 1;
+			transitionRadius = 0;
+			fireball1cd = 0;
+			fireball2cd = 0;
+			scatter1cd = 0;
+			scatter2cd = 0;
+			break1cd = 0;
+			break2cd = 0;
+			scatterNumber1 = 40;
+			scatterNumber2 = 40;
+			fireball1.splice(0, fireball1.length);
+			texts.splice(0, texts.length);
+			boss1Started = false;
+			theCanvas.removeEventListener('mouseup', onclickLevel1, false);
+			theCanvas.removeEventListener('mouseup', onclickShop, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel2, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel3, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel4, false);
+			if (level4Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel5, false);
+			}
+			if (level5Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel6, false);
+			}
+		}
+	}
+	function onclickLevel5(){
+		var pointX = mouseX - 725;
+		var pointY = mouseY - 200;
+		if(Math.sqrt(pointX*pointX + pointY*pointY) < 8){
+			enemies.splice(0, enemies.length);
+			immovable.splice(0,immovable.length);
+			enemyParticles.splice(0, enemyParticles.length);
+			switchGameState(Level_5);
+			backgroundRendered = false;
+			EventMade = false;
+			transition = true;
+			Player1x = 50;
+			Player1y = 50;
+			Player1hp = Player1hpMax;
+			Player2hp = Player2hpMax;
+			angleInRadians = 0;
+			angleInRadians = 0;
+			Player1Facingx = 0;
+			Player1Facingy = 0;
+			Player1Movingx = 0;
+			Player1Movingy = 0;
+			Player1dead = false;
+			Player2dead = false;
+			rotation1 = 0;
+			Player2x = 50;
+			Player2y = 100;
+			goldEarned = 0;
+			Player2Facingx = 0;
+			Player2Facingy = 0;
+			Player2Movingx = 0;
+			Player2Movingy = 0;
+			rotation2 = 0;
+			Player2Velocity = 5;
+			StartLevel2 = true;
+			StartLevel1 = true;
+			StartLevel3 = true;
+			context.globalAlpha = 1;
+			transitionRadius = 0;
+			fireball1cd = 0;
+			fireball2cd = 0;
+			scatter1cd = 0;
+			scatter2cd = 0;
+			break1cd = 0;
+			break2cd = 0;
+			scatterNumber1 = 40;
+			scatterNumber2 = 40;
+			fireball1.splice(0, fireball1.length);
+			texts.splice(0, texts.length);
+			boss1Started = false;
+			theCanvas.removeEventListener('mouseup', onclickLevel1, false);
+			theCanvas.removeEventListener('mouseup', onclickShop, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel2, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel3, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel4, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel5, false);
+			if (level5Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel6, false);
+			}
+			
+		}
+	}
+	function onclickLevel6(){
+		var pointX = mouseX - 500;
+		var pointY = mouseY - 150;
+		if(pointX >= 0 && pointX <= 50 && pointY >=0 && pointY <= 60){
+			enemies.splice(0, enemies.length);
+			immovable.splice(0,immovable.length);
+			enemyParticles.splice(0, enemyParticles.length);
+			switchGameState(Level_6);
+			backgroundRendered = false;
+			EventMade = false;
+			transition = true;
+			Player1x = 575;
+			Player1y = 290;
+			Player1hp = Player1hpMax;
+			Player2hp = Player2hpMax;
+			angleInRadians = 0;
+			angleInRadians = 0;
+			Player1Facingx = 0;
+			Player1Facingy = 0;
+			Player1Movingx = 0;
+			Player1Movingy = 0;
+			Player1dead = false;
+			Player2dead = false;
+			rotation1 = 0;
+			Player2x = 625;
+			Player2y = 290;
+			goldEarned = 0;
+			Player2Facingx = 0;
+			Player2Facingy = 0;
+			Player2Movingx = 0;
+			Player2Movingy = 0;
+			rotation2 = 0;
+			Player2Velocity = 5;
+			StartLevel2 = true;
+			StartLevel1 = true;
+			StartLevel3 = true;
+			context.globalAlpha = 1;
+			transitionRadius = 0;
+			fireball1cd = 0;
+			fireball2cd = 0;
+			scatter1cd = 0;
+			scatter2cd = 0;
+			break1cd = 0;
+			break2cd = 0;
+			scatterNumber1 = 40;
+			scatterNumber2 = 40;
+			fireball1.splice(0, fireball1.length);
+			texts.splice(0, texts.length);
+			boss2Started = false;
+			level6Transition = true;
+			minion6Made = false;
+			theCanvas.removeEventListener('mouseup', onclickLevel1, false);
+			theCanvas.removeEventListener('mouseup', onclickShop, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel2, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel3, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel4, false);
+			theCanvas.removeEventListener('mouseup', onclickLevel5, false);
+			if (level5Complete == true){
+				theCanvas.removeEventListener('mouseup', onclickLevel6, false);
+			}
+			
+		}
+	}
+	var minion6Made = false;
+	var level6Transition = true;
+	function level6(){
+		context.clearRect(0, 0, canvas.width, canvas.height);		
+		context.fillStyle = "black";
+		context.fillRect(0,0,maxx,maxy);
+		if (Player1dead == true && Player2dead == true){
+			switchGameState(Door_Transition);
+		}
+		if (level6Transition == true){
+			TransitionLevel6();
+		}
+		else{
+			Level6Boss();
+		}	
+		for (var k = 0; k < transition6Minions.length; ++k){
+			transition6Minions[k].x += 5;
+			context.fillStyle = "green";
+			context.fillRect(transition6Minions[k].x, transition6Minions[k].y,10,10);
+			if (transition6Minions[k].x > transition6Minions[k].talkx && (transition6Minions[k].x < transition6Minions[k].talkx + 400) &&
+			    transition6Minions[k].talking == true){
+				context.fillStyle = "white";
+				context.fillText(transition6Texts[transition6Minions[k].talk], transition6Minions[k].x - 10, transition6Minions[k].y - 10);
+			}
+			if (Math.random() >= .5){
+				 transition6Minions[k].y += 3;
+			}
+			if (Math.random() >= .5){
+				 transition6Minions[k].y -= 3;
+			}
+			if (transition6Minions[k].x > 1400){
+				transition6Minions.splice(k,1);
+			}
+		}
+		if (transition6Minions.length <= 0){
+			level6Transition = false;
+		}
+		renderFireballs();
+		RenderPlayer1AndPlayer2();
+		RenderTexts();
+		if (boss2Started == true){
+			EnemiestoRender1(0);
+			EnemiestoRender3(0);
+			if (enemies.length == 0){
+				context.fillStyle = "white";
+				level6Complete = true;
+				context.fillText("congratulations! you beat my game!", 500, 200);
+				if (keyPressList[27]==true){
+					switchGameState(Game_Select_Screen);
+					titleStarted = false;
+				}
+				context.fillText("Press esc to go back to the select screen", 50, 50);		
+			}
+		}
+		RenderEnemyParticles();
+		context.fillStyle = "yellow";
+		context.fillText("Gold: $ " + goldEarned, 0, 0);
+	}
+
+	function Level6Boss(){
+		if (boss2Started == false){
+			var tempEnemy = {};
+			tempEnemy.x = 0;
+			tempEnemy.y = 0;
+			tempEnemy.angleToAttack = 0;
+			tempEnemy.OKPosition = true;
+			tempEnemy.Originalx = tempEnemy.x;
+			tempEnemy.Originaly = tempEnemy.y;
+			tempEnemy.hp =6000;
+			tempEnemy.knockback = 0;
+			tempEnemy.angleKnockback = 0;
+			tempEnemy.level = 102;
+			tempEnemy.width = 250;
+			tempEnemy.stage = 1;
+			tempEnemy.phase = 1;
+			tempEnemy.phaseTimer = 320;
+			tempEnemy.spread = 0;
+			tempEnemy.corsair = 120;
+			tempEnemy.knockbackStrength = 0;
+			enemies.push(tempEnemy);
+			boss2Started = true;
+		}
+		else{
+			for (var i = 0; i < enemies.length; ++i){
+				if (enemies[i].level == 102){
+					context.fillStyle = "red";
+					context.fillRect(enemies[i].x, enemies[i].y, 250, 600);
+					if (enemies[i].stage == 1){
+						context.fillStyle = "green";
+					}
+					else if (enemies[i].stage == 2){
+						context.fillStyle = "yellow";
+					}
+					else if (enemies[i].stage == 3){
+						context.fillStyle = "#990000";
+					}
+					context.fillRect (20, 10, enemies[i].hp*.2, 20);
+				}
+			}
+		}		
+	}
+	var transition6Minions = [];
+	var transition6Texts = [];
+	var Text0 = "Oh God... He's ANGRY!";
+	var Text1 = "I told them ... Don't do it";
+	var Text2 = "AHHHHHHH!";
+	var Text3 = "It's all my fault";
+	var Text4 = "hur hur";
+	var Text5 = "*breathing heavily*";
+	var Text6 = "I swear he gets fatter every time";
+	var Text7 = "*pant*";
+	var Text8 = "Tell my mom I love her.";
+	var Text9 = "T_T";
+	var Text10 = "HAHA he told me not to do it";
+	var Text11 = "Wow, just because I ate his tofu?";
+	var Text12 = "I hate my job";
+	var Text13 = "why? WHYYYYY?!?!?!";
+	var Text14 = "D=";
+	var Text15 = "HRNG!";
+	var Text16 = "Oh man Oh man Oh man Oh man";
+	var Text17 = "Tooooootally screwed";
+	var Text18 = "Teehee";
+	var Text19 = "I dun wanna die!";
+	var Text20 = "run away!";
+	transition6Texts.push(Text0);
+	transition6Texts.push(Text1);
+	transition6Texts.push(Text2);
+	transition6Texts.push(Text3);
+	transition6Texts.push(Text4);
+	transition6Texts.push(Text5);
+	transition6Texts.push(Text6);
+	transition6Texts.push(Text7);
+	transition6Texts.push(Text8);
+	transition6Texts.push(Text9);
+	transition6Texts.push(Text10);
+	transition6Texts.push(Text11);
+	transition6Texts.push(Text12);
+	transition6Texts.push(Text13);
+	transition6Texts.push(Text14);
+	transition6Texts.push(Text15);
+	transition6Texts.push(Text16);
+	transition6Texts.push(Text17);
+	transition6Texts.push(Text18);
+	transition6Texts.push(Text19);
+	transition6Texts.push(Text20);
+	function TransitionLevel6(){
+		if (minion6Made == false && transition6Minions.length <= 250){
+			for (var i = 0; i < 1; ++i){
+				var tempMinion = {};
+				tempMinion.x = - 300;
+				tempMinion.y = Math.floor(Math.random()*500) + 50;
+				tempMinion.talkx = Math.floor(Math.random() * 700 + 100);
+				tempMinion.talk = Math.floor(Math.random() * 20);
+				if (Math.random() >= .95){
+					tempMinion.talking = true;
+				}
+				else{
+					tempMinion.talking = false;
+				}
+				transition6Minions.push(tempMinion);
+			}
+		}
+		if (transition6Minions.length >= 250){
+			minion6Made = true;
+		}
+	}
+	function level5(){
+		context.fillStyle = "gray";
+		context.fillRect(0,0,maxx,maxy);
+		context.fillStyle= "black";
+		var tempImmovable = {};
+		tempImmovable.width = 1000;
+		tempImmovable.height = 100;
+		tempImmovable.x = 0;
+		tempImmovable.y = 250;
+		immovable.push(tempImmovable);
+		context.fillRect(immovable[0].x, immovable[0].y, immovable[0].width, immovable[0].height);
+		renderFireballs();
+		RenderPlayer1AndPlayer2();
+		RenderTexts();
+		EnemiestoRender1(5);
+		EnemiestoRender2(10);
+		EnemiestoRender3(5);
+		if (Player1dead == true && Player2dead == true){
+			switchGameState(Door_Transition);
+		}
+		if (enemies.length <= 0){
+			level6Complete = true;
+			switchGameState(Door_Transition);
+		}
+		RenderEnemyParticles();
+		context.fillStyle = "yellow";
+		context.fillText("Gold: $ " + goldEarned, 0, 0);
+	}
+	function level4(){
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		context.fillStyle = "gray";
+		context.fillRect(0,0,maxx,maxy);
+		context.fillStyle= "black";
+		var tempImmovable = {};
+		tempImmovable.width = 100;
+		tempImmovable.height = 250;
+		tempImmovable.x = 200;
+		tempImmovable.y = 0;
+		immovable.push(tempImmovable);
+		var tempImmovable = {};
+		tempImmovable.width = 100;
+		tempImmovable.height = 250;
+		tempImmovable.x = 200;
+		tempImmovable.y = 350;
+		immovable.push(tempImmovable);
+		var tempImmovable = {};
+		tempImmovable.width = 950;
+		tempImmovable.height = 100;
+		tempImmovable.x = 300;
+		tempImmovable.y = 0;
+		immovable.push(tempImmovable);
+		var tempImmovable = {};
+		tempImmovable.width = 950;
+		tempImmovable.height = 100;
+		tempImmovable.x = 300;
+		tempImmovable.y = 500;
+		immovable.push(tempImmovable);
+		for (var i = 0; i < 4; i++){
+			context.fillRect(immovable[i].x, immovable[i].y, immovable[i].width, immovable[i].height);
+		}
+		renderFireballs();
+		RenderPlayer1AndPlayer2();
+		RenderTexts();
+		EnemiestoRender1(10);
+		EnemiestoRender2(10);
+		EnemiestoRender3(3);
+		if (Player1dead == true && Player2dead == true){
+			switchGameState(Door_Transition);
+		}
+		if (enemies.length <= 0){
+			level4Complete = true;
+			switchGameState(Door_Transition);
+		}
+		RenderEnemyParticles();
+		context.fillStyle = "yellow";
+		context.fillText("Gold: $ " + goldEarned, 0, 0);
+	}
+	function level3(){
+		context.clearRect(0, 0, canvas.width, canvas.height);		
+		context.fillStyle = "gray";
+		context.fillRect(0,0,maxx,maxy);
+		context.fillStyle= "black";
+		if (boss1Started == false){
+			var tempImmovable = {};
+				tempImmovable.width = 100;
+				tempImmovable.height = 400;
+				tempImmovable.x = 575;
+				tempImmovable.y = 100;
+				immovable.push(tempImmovable);
+			var tempImmovable = {};
+				tempImmovable.width = 600;
+				tempImmovable.height = 100;
+				tempImmovable.x = 325;
+				tempImmovable.y = 250;
+				immovable.push(tempImmovable);
+			for (var i = 0; i < 2; i++){
+				context.fillRect(immovable[i].x, immovable[i].y, immovable[i].width, immovable[i].height);
+			}
+		}
+		if (Player1dead == true && Player2dead == true){
+			switchGameState(Door_Transition);
+		}
+		if (enemies.length <= 0 || boss1Started == true){
+			if (transitionRadius <= 700){
+				boss1Transition();
+			}
+			else{
+				boss1Begin();
+			}
+			if (boss1Started == true && enemies.length <=0){
+				level3Complete = true;
+				switchGameState(Door_Transition);
+			}	
+		}
+		renderFireballs();
+		RenderPlayer1AndPlayer2();
+		RenderTexts();
+		EnemiestoRender1(15);
+		EnemiestoRender2(5);
+		RenderEnemyParticles();
+		context.fillStyle = "yellow";
+		context.fillText("Gold: $ " + goldEarned, 0, 0);
+
+	}
+ 	var transitionRadius = 0;
+	function boss1Transition(){
+		context.fillStyle = "black";
+		context.beginPath();
+		context.arc(maxx/2, maxy/2, transitionRadius, 0, 2*Math.PI, false);
+		context.fill();
+		transitionRadius += 4;
+	}
+	var boss1Started = false;
+	function boss1Begin(){
+		context.fillStyle = "black";
+		context.fillRect(0,0,maxx,maxy);
+		immovable.splice(0, immovable.length);
+		if (boss1Started == false){
+			var tempEnemy = {};
+			tempEnemy.x = Math.floor(Math.random()*1000) + 100;
+			tempEnemy.y = Math.floor(Math.random()*400) + 100;
+			tempEnemy.angleToAttack = 0;
+			tempEnemy.OKPosition = false;
+			tempEnemy.Originalx = tempEnemy.x;
+			tempEnemy.Originaly = tempEnemy.y;
+			tempEnemy.hp = 3000;
+			tempEnemy.knockback = 0;
+			tempEnemy.angleKnockback = 0;
+			tempEnemy.level = 101;
+			tempEnemy.width = 96;
+			tempEnemy.stage = 1;
+			tempEnemy.teleportTime = 320;
+			tempEnemy.minionSpawn = 160;
+			tempEnemy.beams = 240;
+			//height is 64
+			tempEnemy.knockbackStrength = 0;
+			enemies.push(tempEnemy);
+			boss1Started = true;
+		}
+		else{
+			for (var i = 0; i < enemies.length; ++i){
+				if (enemies[i].level == 101){
+					context.fillStyle = "purple";
+					context.fillRect(enemies[i].x, enemies[i].y, 96, 64);
+					if (enemies[i].stage == 1){
+						context.fillStyle = "green";
+					}
+					else if (enemies[i].stage == 2){
+						context.fillStyle = "yellow";
+					}
+					else if (enemies[i].stage == 3){
+						context.fillStyle = "red";
+					}
+					context.fillRect (enemies[i].x - 10, enemies[i].y - 10, enemies[i].hp*116/3000, 5);
+				}
+			}
+		}
+	}
+
+	function level2(){
+		context.clearRect(0, 0, canvas.width, canvas.height);		
+		context.fillStyle = "gray";
+		context.fillRect(0,0,maxx,maxy);
+		context.fillStyle= "black";
+		var tempImmovable = {};
+			tempImmovable.width = 100;
+			tempImmovable.height = 500;
+			tempImmovable.x = 100;
+			tempImmovable.y = 0;
+			immovable.push(tempImmovable);
+		var tempImmovable = {};
+			tempImmovable.width = 850;
+			tempImmovable.height = 100;
+			tempImmovable.x = 200;
+			tempImmovable.y = 400;
+			immovable.push(tempImmovable);
+		var tempImmovable = {};
+			tempImmovable.width = 100;
+			tempImmovable.height = 400;
+			tempImmovable.x = 1050;
+			tempImmovable.y = 100;
+			immovable.push(tempImmovable);
+		var tempImmovable = {};
+			tempImmovable.width = 750;
+			tempImmovable.height = 100;
+			tempImmovable.x = 300;
+			tempImmovable.y = 100;
+			immovable.push(tempImmovable);
+		for (var i = 0; i < 4; ++i){
+			context.fillRect(immovable[i].x, immovable[i].y, immovable[i].width, immovable[i].height);
+		}
+		renderFireballs();
+		RenderPlayer1AndPlayer2();
+		RenderTexts();
+		EnemiestoRender2(5);
+		EnemiestoRender1(15);
+		if (Player1dead == true && Player2dead == true){
+			switchGameState(Door_Transition);
+		}
+		if (enemies.length <= 0){
+			level2Complete = true;
+			switchGameState(Door_Transition);
+		}
+		context.fillStyle = "yellow";
+		context.fillText("Gold: $ " + goldEarned, 0, 0);
+	}
+
+	function Level1(){
+		context.clearRect(0, 0, canvas.width, canvas.height);		
+		context.fillStyle = "gray";
+		context.fillRect(0,0,maxx,maxy);
+		context.fillStyle= "black";
+		//All the Enemies
+		var tempImmovable = {};
+			tempImmovable.width = 100;
+			tempImmovable.height = 400;
+			tempImmovable.x = 200;
+			tempImmovable.y = 0;
+			immovable.push(tempImmovable);
+		var tempImmovable = {};
+			tempImmovable.width = 100;
+			tempImmovable.height = 400;
+			tempImmovable.x = 700;
+			tempImmovable.y = 200;
+			immovable.push(tempImmovable);
+		for (var i = 0; i < 2; ++i){
+			context.fillRect(immovable[i].x, immovable[i].y, immovable[i].width, immovable[i].height);
+		}
+		//here I will render all of the enemies;
+		renderFireballs();
+		EnemiestoRender1(10);
+		RenderPlayer1AndPlayer2();
+		RenderTexts();
+		if (Player1dead == true && Player2dead == true){
+			switchGameState(Door_Transition);
+		}
+		if (enemies.length <= 0){
+			level1Complete = true;
+			switchGameState(Door_Transition);
+		}
+		context.fillStyle = "yellow";
+		context.fillText("Gold: $ " + goldEarned, 0, 0);
+	}
+	
+	var StartLevel1 = true;
+	var StartLevel2 = true;
+	var StartLevel3 = true;
+	function EnemiestoRender3(number){
+		var count = 0;
+		if (StartLevel3 == true){
+			while (count < number){
+				var tempEnemy = {};
+				tempEnemy.x = Math.floor(Math.random()*200) + 800;
+				tempEnemy.y = Math.floor(Math.random()*590);
+				tempEnemy.angleToAttack = 0;
+				tempEnemy.OKPosition = false;
+				tempEnemy.Originalx = tempEnemy.x;
+				tempEnemy.Originaly = tempEnemy.y;
+				tempEnemy.hp = 400;
+				tempEnemy.knockback = 0;
+				tempEnemy.angleKnockback = 0;
+				tempEnemy.level = 3;
+				tempEnemy.width = 20;
+				tempEnemy.knockbackStrength = 0;
+				tempEnemy.charge = 120;
+				var good = RenderEnemyHelper2(tempEnemy.x, tempEnemy.y);
+				if (good == true){
+					enemies.push(tempEnemy);
+					context.fillRect(tempEnemy.x, tempEnemy.y, 10, 10);
+					count +=1;
+				}
+			}
+		}
+		else{
+			for (var i = 0; i < enemies.length; ++i){
+				if (enemies[i].level == 3){
+					context.fillStyle = "red";
+					context.fillRect(enemies[i].x, enemies[i].y, 20, 20);
+					context.fillStyle = "red";
+					context.fillRect (enemies[i].x - 5, enemies[i].y - 10, enemies[i].hp*3/40, 5);
+					context.fillStyle = "blue";
+					context.fillRect (enemies[i].x - 5, enemies[i].y - 15, enemies[i].charge/4, 5);
+				}
+				if (enemies[i].level == 0){
+					context.fillStyle = "orange";
+					enemies[i].x += enemies[i].dx;
+					enemies[i].y += enemies[i].dy;
+					context.fillRect(enemies[i].x, enemies[i].y, 10, 10);
+					if (enemies[i].heal == true){
+						context.fillStyle = "green";
+					}
+					else{
+						context.fillStyle = "blue";
+					}
+					context.fillRect(enemies[i].x - 5, enemies[i].y - 10, enemies[i].charge*2/30, 5);
+				}
+			}
+		}
+		StartLevel3 = false;
+	}
+
+	function EnemiestoRender2(number){
+		var count = 0;
+		if (StartLevel2 == true){
+			while (count < number){
+				var tempEnemy = {};
+				tempEnemy.x = Math.floor(Math.random()*1045) + 200;
+				tempEnemy.y = Math.floor(Math.random()*590);
+				tempEnemy.angleToAttack = 0;
+				tempEnemy.OKPosition = false;
+				tempEnemy.Originalx = tempEnemy.x;
+				tempEnemy.Originaly = tempEnemy.y;
+				tempEnemy.hp = 200;
+				tempEnemy.knockback = 0;
+				tempEnemy.angleKnockback = 0;
+				tempEnemy.level = 2;
+				tempEnemy.width = 20;
+				tempEnemy.knockbackStrength = 0;
+				var good = RenderEnemyHelper2(tempEnemy.x, tempEnemy.y);
+				if (good == true){
+					enemies.push(tempEnemy);
+					context.fillRect(tempEnemy.x, tempEnemy.y, 10, 10);
+					count +=1;
+				}
+			}
+		}
+		else{
+			for (var i = 0; i < enemies.length; ++i){
+				if (enemies[i].level == 2){
+					context.fillStyle = "yellow";
+					context.fillRect(enemies[i].x, enemies[i].y, 20, 20);
+					context.fillStyle = "red";
+					context.fillRect (enemies[i].x - 5, enemies[i].y - 10, enemies[i].hp*3/20, 5);
+				}
+				else if (enemies[i].level == -1){
+					context.fillStyle = "purple";
+					context.fillRect(enemies[i].x, enemies[i].y, 10, 10);
+				}
+			}
+		}
+		StartLevel2 = false;
+	}
+	function EnemiestoRender1(number){
+		var count = 0;
+		context.fillStyle = "green";
+		if (StartLevel1 == true){
+			while (count < number){
+				var tempEnemy = {};
+				tempEnemy.x = Math.floor(Math.random()*1045) + 200;
+				tempEnemy.y = Math.floor(Math.random()*590);
+				tempEnemy.angleToAttack = 0;
+				tempEnemy.OKPosition = false;
+				tempEnemy.Originalx = tempEnemy.x;
+				tempEnemy.Originaly = tempEnemy.y;
+				tempEnemy.hp = 100;
+				tempEnemy.knockback = 0;
+				tempEnemy.angleKnockback = 0;
+				tempEnemy.level = 1;
+				tempEnemy.width = 10;
+				tempEnemy.knockbackStrength = 0;
+				var good = RenderEnemyHelper1(tempEnemy.x, tempEnemy.y);
+				if (good == true){
+					enemies.push(tempEnemy);
+					context.fillRect(tempEnemy.x, tempEnemy.y, 10, 10);
+					count += 1;
+				}
+			}
+		}
+		else{
+			for(var i = 0; i < enemies.length; ++i){
+				if(enemies[i].level == 1){
+					context.fillStyle = "green";
+					context.fillRect(enemies[i].x, enemies[i].y, 10, 10);
+					context.fillStyle = "red";
+					context.fillRect (enemies[i].x - 5, enemies[i].y - 10, enemies[i].hp/5, 5);
+				}
+			}
+		}
+		StartLevel1 = false;
+		for(var i = 0; i < enemies.length; ++i){
+			if (Player1dead == false){
+				if (enemies[i].level == 101){
+					if (Player1x > enemies[i].x - 10 && Player1x < enemies[i].x + 96 
+					    && Player1y > enemies[i].y - 10 && Player1y < enemies[i].y + 64){
+						Player1hp -= 2;
+					}
+				}
+				else if (enemies[i].level == 102){
+					if (Player1x > enemies[i].x - 10 && Player1x < enemies[i].x + 250){
+						Player1hp -= 3;
+					}
+				}
+				else{
+					var x1 = enemies[i].x - Player1x + enemies[i].width/2 - 10;
+					var y1 = enemies[i].y - Player1y + enemies[i].width/2 - 10;
+					var distance1 = Math.sqrt(x1*x1 + y1*y1);
+					if (distance1 < enemies[i].width){
+						Player1hp -= Math.abs(enemies[i].level);
+					}
+				}
+			}
+			if (Player2dead == false){
+				if (enemies[i].level == 101){
+					if (Player2x > enemies[i].x - 10 && Player2x < enemies[i].x + 96 
+					    && Player2y > enemies[i].y - 10 && Player2y < enemies[i].y + 64){
+						Player2hp -= 2;
+					}
+				}
+				else if (enemies[i].level == 102){
+					if (Player2x > enemies[i].x - 10 && Player2x < enemies[i].x + 250){
+						Player2hp -= 3;
+					}
+				}
+				else{
+					var x2 = enemies[i].x - Player2x + enemies[i].width/2 - 10;
+					var y2 = enemies[i].y - Player2y + enemies[i].width/2 - 10;
+					var distance2 = Math.sqrt(x2*x2 + y2*y2);
+					if (distance2 < enemies[i].width){
+						Player2hp -= Math.abs(enemies[i].level);
+					}
+				}			
+			}
+			if (enemies[i].knockback > 0){
+				--enemies[i].knockback;
+				if (enemies[i].level == 0){
+					if (enemies[i].x > 1245 || enemies[i].x < 0){
+						enemies[i].dx = -Math.sin(enemies[i].angleKnockback)*enemies[i].knockbackStrength;
+					}
+					if (enemies[i].y > 595 || enemies[i].y < 0){
+						enemies[i].dy = -Math.cos(enemies[i].angleKnockback)*enemies[i].knockbackStrength;
+					}
+					if (enemies[i].knockback == 1){
+						enemies[i].dx = 0;
+						enemies[i].dy = 0;
+					}
+				}
+				else{
+					enemies[i].x += Math.sin(enemies[i].angleKnockback)*enemies[i].knockbackStrength;
+					enemies[i].y += Math.cos(enemies[i].angleKnockback)*enemies[i].knockbackStrength;
+				}
+			}
+
+			if (enemies[i].level == 0){
+				++enemies[i].charge;
+				if (enemies[i].charge > 300){
+					if (enemies[i].heal == true){
+						context.fillStyle = "green";
+					}
+					else{
+						context.fillStyle = "purple";
+					}
+					context.beginPath();
+					context.arc(enemies[i].x, enemies[i].y, 30, 0, 2 * Math.PI);
+					context.fill();
+					context.closePath();
+					if (enemies[i].x < 285){
+						if (enemies[i].heal == true){
+							enemies[0].hp += 100;
+							if (enemies[0].hp > 6000){
+								enemies[0].hp = 6000;
+							}
+						}
+						else{
+							enemies[0].hp -= 100;
+						}
+					}
+					var xgap1 = Player1x - enemies[i].x - 5;
+					var ygap1 = Player1y - enemies[i].y - 5;
+					var xgap2 = Player2x - enemies[i].x - 5;
+					var ygap2 = Player2y - enemies[i].y - 5;
+					var gap1 = Math.sqrt(xgap1 * xgap1 + ygap1 * ygap1);
+					var gap2 = Math.sqrt(xgap2 * xgap2 + ygap2 * ygap2);
+					if (gap1 < 30 + 10){
+						if (enemies[i].heal == true){
+							Player1hp += 100;
+							if (Player1hp >= Player1hpMax){
+								Player1hp = Player1hpMax;
+							}
+						}
+						else{
+							Player1hp -= 100;
+						}
+					}
+					if (gap2 < 30 + 10){
+						if (enemies[i].heal == true){
+							Player2hp += 100;
+							if (Player2hp >= Player2hpMax){
+								Player2hp = Player2hpMax;
+							}
+						}
+						else{
+							Player2hp -= 100;
+						}
+					}
+					enemies.splice(i,1);
+					continue;
+				}
+			}
+
+			if (enemies[i].level == 1){
+				if (Player1dead == true && distance2 <= 400){
+					enemies[i].angleToAttack = Math.atan2(x2,y2);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*4;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*4;
+				}
+				else if (Player2dead == true && distance1 <= 400){
+					enemies[i].angleToAttack = Math.atan2(x1,y1);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*4;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*4;
+				}
+				else if (distance1 <= distance2 && distance1 <= 400){
+					enemies[i].angleToAttack = Math.atan2(x1,y1);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*4;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*4;
+				}
+				else if (distance1 > distance2 && distance2 <= 400){
+					enemies[i].angleToAttack = Math.atan2(x2,y2);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*4;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*4;
+				}
+				else if (enemies[i].x <= enemies[i].Originalx + 4 &&  enemies[i].y <= enemies[i].Originaly + 4 &&
+				  	 enemies[i].x >= enemies[i].Originalx - 4 &&  enemies[i].y >= enemies[i].Originaly - 4){
+					//do nothing
+				}
+				else{
+					var homex = enemies[i].x - enemies[i].Originalx;
+					var homey = enemies[i].y - enemies[i].Originaly;
+					enemies[i].angleToAttack = Math.atan2(homex, homey);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*4;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*4;
+				}
+				for (var j = 0; j < immovable.length; ++j){
+					if(enemies[i].x > (immovable[j].x - 10) &&  enemies[i].x < (immovable[j].x + immovable[j].width) &&
+					   enemies[i].y > (immovable[j].y - 10) &&  enemies[i].y < (immovable[j].y + immovable[j].height)){
+						if (enemies[i].x >= (immovable[j].x - 10) && enemies[i].x <= (immovable[j].x + immovable[j].width)
+					  	    && enemies[i].y >= immovable[j].y - 5 && enemies[i].y <= (immovable[j].y + immovable[j].height - 5)){
+							enemies[i].x += 4*Math.sin(enemies[i].angleToAttack);
+						}
+						else if (enemies[i].y <= (immovable[j].y + immovable[j].height + 5) &&
+						 	 enemies[i].y >= (immovable[j].y + .5 * immovable[j].height)){
+							if (Math.cos(enemies[i].angleToAttack) > 0){
+								enemies[i].y += 4*Math.cos(enemies[i].angleToAttack);
+							}
+						}
+						else if (enemies[i].y >= (immovable[j].y - 10) && enemies[i].y <= (immovable[j].y + .5 * immovable[j].height)){
+							if (Math.cos(enemies[i].angleToAttack) < 0){
+								enemies[i].y += 4*Math.cos(enemies[i].angleToAttack);
+							}
+						}
+					}
+				}
+			}
+			else if (enemies[i].level == -1){
+				if (Player1dead == true){
+					enemies[i].angleToAttack = Math.atan2(x2,y2);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+				}
+				else if (Player2dead == true){
+					enemies[i].angleToAttack = Math.atan2(x1,y1);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+				}
+				else if (distance1 <= distance2){
+					enemies[i].angleToAttack = Math.atan2(x1,y1);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+				}
+				else if (distance1 > distance2){
+					enemies[i].angleToAttack = Math.atan2(x2,y2);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+				}
+			}
+			else if (enemies[i].level == 2){
+				if (enemies[i].hp < 200){
+					if (Player1dead == true){
+						enemies[i].angleToAttack = Math.atan2(x2,y2);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+					else if (Player2dead == true){
+						enemies[i].angleToAttack = Math.atan2(x1,y1);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+					else if (distance1 <= distance2){
+						enemies[i].angleToAttack = Math.atan2(x1,y1);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+					else if (distance1 > distance2){
+						enemies[i].angleToAttack = Math.atan2(x2,y2);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+				}
+				for (var j = 0; j < immovable.length; ++j){
+					if(enemies[i].x > (immovable[j].x - 20) &&  enemies[i].x < (immovable[j].x + immovable[j].width) &&
+					   enemies[i].y > (immovable[j].y - 20) &&  enemies[i].y < (immovable[j].y + immovable[j].height)){
+						if (enemies[i].x >= (immovable[j].x - 20) && enemies[i].x <= (immovable[j].x + immovable[j].width)
+					  	    && enemies[i].y >= immovable[j].y - 14 && enemies[i].y <= (immovable[j].y + immovable[j].height - 6)){
+							enemies[i].x += 5*Math.sin(enemies[i].angleToAttack);
+						}
+						else if (enemies[i].y <= (immovable[j].y + immovable[j].height + 6) &&
+						 	 enemies[i].y >= (immovable[j].y + .5 * immovable[j].height)){
+							if (Math.cos(enemies[i].angleToAttack) > 0){
+								enemies[i].y += 5*Math.cos(enemies[i].angleToAttack);
+							}
+						}
+						else if (enemies[i].y >= (immovable[j].y - 20) && enemies[i].y <= (immovable[j].y + .5 * immovable[j].height)){
+							if (Math.cos(enemies[i].angleToAttack) < 0){
+								enemies[i].y += 5*Math.cos(enemies[i].angleToAttack);
+							}
+						}
+					}
+				}
+			}
+			else if (enemies[i].level == 3){
+				if (Player1dead == true && (distance2 <= 800  || enemies[i].hp < 400)){
+					++enemies[i].charge;
+					enemies[i].angleToAttack = Math.atan2(x2,y2);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					if (enemies[i].charge <= 15){
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+					if (enemies[i].charge > 120){
+						enemies[i].charge = 0;
+					}
+				}
+				else if (Player2dead == true && (distance1 <= 800  || enemies[i].hp < 400)){
+					++enemies[i].charge;
+					enemies[i].angleToAttack = Math.atan2(x1,y1);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					if (enemies[i].charge <= 15){
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+					if (enemies[i].charge > 120){
+						enemies[i].charge = 0;
+					}
+				}
+				else if (distance1 <= distance2 && (distance1 <= 800 || enemies[i].hp < 400)){
+					++enemies[i].charge;
+					enemies[i].angleToAttack = Math.atan2(x1,y1);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					if (enemies[i].charge <= 15){
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+					if (enemies[i].charge > 120){
+						enemies[i].charge = 0;
+					}
+
+				}
+				else if (distance1 > distance2 && (distance2 <= 800 || enemies[i].hp < 400)){
+					++enemies[i].charge;
+					enemies[i].angleToAttack = Math.atan2(x2,y2);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					if (enemies[i].charge <= 15){
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+					}
+					if (enemies[i].charge > 120){
+						enemies[i].charge = 0;
+					}
+
+				}
+				else if (enemies[i].x <= enemies[i].Originalx + 6 &&  enemies[i].y <= enemies[i].Originaly + 6 &&
+				  	 enemies[i].x >= enemies[i].Originalx - 6 &&  enemies[i].y >= enemies[i].Originaly - 6){
+					//do nothing
+				}
+				else{
+					var homex = enemies[i].x - enemies[i].Originalx;
+					var homey = enemies[i].y - enemies[i].Originaly;
+					enemies[i].angleToAttack = Math.atan2(homex, homey);
+					enemies[i].x -= Math.sin(enemies[i].angleToAttack)*5;
+					enemies[i].y -= Math.cos(enemies[i].angleToAttack)*5;
+				}
+				for (var j = 0; j < immovable.length; ++j){
+					if(enemies[i].x > (immovable[j].x - 10) &&  enemies[i].x < (immovable[j].x + immovable[j].width) &&
+					   enemies[i].y > (immovable[j].y - 10) &&  enemies[i].y < (immovable[j].y + immovable[j].height)){
+						if (enemies[i].x >= (immovable[j].x - 10) && enemies[i].x <= (immovable[j].x + immovable[j].width)
+					  	    && enemies[i].y >= immovable[j].y - 4 && enemies[i].y <= (immovable[j].y + immovable[j].height - 6)){
+							enemies[i].x += 5*Math.sin(enemies[i].angleToAttack);
+							if (enemies[i].charge <= 15){
+								enemies[i].x += 5*Math.sin(enemies[i].angleToAttack);
+							}
+						}
+						else if (enemies[i].y <= (immovable[j].y + immovable[j].height + 10) &&
+						 	 enemies[i].y >= (immovable[j].y + .5 * immovable[j].height)){
+							if (Math.cos(enemies[i].angleToAttack) > 0){
+								enemies[i].y += 5*Math.cos(enemies[i].angleToAttack);
+								if (enemies[i].charge <= 15){
+									enemies[i].y += 5*Math.cos(enemies[i].angleToAttack);
+								}
+								
+							}
+						}
+						else if (enemies[i].y >= (immovable[j].y - 10) && enemies[i].y <= (immovable[j].y + .5 * immovable[j].height)){
+							if (Math.cos(enemies[i].angleToAttack) < 0){
+								enemies[i].y += 5*Math.cos(enemies[i].angleToAttack);
+								if (enemies[i].charge <= 15){
+									enemies[i].y += 5*Math.cos(enemies[i].angleToAttack);
+								}
+							}
+						}
+					}
+				}
+			}
+			if (enemies[i].level == 101){
+				if (enemies[i].stage == 1){
+					var x1 = enemies[i].x - Player1x + enemies[i].width/2 - 10;
+					var y1 = enemies[i].y - Player1y + enemies[i].width/2 - 10;
+					var x2 = enemies[i].x - Player2x + enemies[i].width/2 - 10;
+					var y2 = enemies[i].y - Player2y + enemies[i].width/2 - 10;
+					var distance2 = Math.sqrt(x2*x2 + y2*y2);
+					var distance1 = Math.sqrt(x1*x1 + y1*y1);
+					if (Player1dead == true){
+						enemies[i].angleToAttack = Math.atan2(x2,y2);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+					}
+					else if (Player2dead == true){
+						enemies[i].angleToAttack = Math.atan2(x1,y1);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+					}
+					else if (distance1 <= distance2){
+						enemies[i].angleToAttack = Math.atan2(x1,y1);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+					}
+					else if (distance1 > distance2){
+						enemies[i].angleToAttack = Math.atan2(x2,y2);
+						enemies[i].x -= Math.sin(enemies[i].angleToAttack)*3;
+						enemies[i].y -= Math.cos(enemies[i].angleToAttack)*3;
+					}
+				}
+				else if (enemies[i].stage == 2){
+					--enemies[i].teleportTime;
+					--enemies[i].minionSpawn;
+					--enemies[i].beams;
+					if (enemies[i].teleportTime <= 0){
+						enemies[i].x = Math.floor(Math.random() * 1000 + 100);
+						enemies[i].y = Math.floor(Math.random() * 400 + 100);
+						enemies[i].teleportTime = 320;
+					}
+					if (enemies[i].minionSpawn <= 0){
+						if (Player1dead == false){
+							var tempEnemy = {};
+							tempEnemy.x = Player1x + 100;
+							tempEnemy.y = Player1y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player1x - 100;
+							tempEnemy.y = Player1y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							enemies[i].minionSpawn = 320;
+						}
+						///////////////////////////////////////////////////
+						if (Player2dead == false){
+							var tempEnemy = {};
+							tempEnemy.x = Player2x + 100;
+							tempEnemy.y = Player2y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player2x - 100;
+							tempEnemy.y = Player2y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							enemies[i].minionSpawn = 320;
+						}
+					}
+					//This is where the beams have to happen =D
+					if (enemies[i].beams <= 0){
+						for(var k = 0; k < 40; ++k){
+							tempParticle = {};
+							tempParticle.x = Math.floor(Math.random() * 1200);
+							tempParticle.y = Math.floor(Math.random() * 600);
+							tempParticle.charge = 80;
+							tempParticle.damage = 80;
+							tempParticle.radius = 80;
+							tempParticle.chargeMax = 80;
+							tempParticle.type = "boss1Beam";
+							enemyParticles.push(tempParticle);
+						}
+						enemies[i].beams = 320;
+					}
+				}
+				else if (enemies[i].stage == 3){
+					--enemies[i].teleportTime;
+					--enemies[i].minionSpawn;
+					--enemies[i].beams;
+					if (enemies[i].teleportTime <= 0){
+						enemies[i].x = Math.floor(Math.random() * 1000 + 100);
+						enemies[i].y = Math.floor(Math.random() * 400 + 100);
+						enemies[i].teleportTime = 320;
+					}
+					if (enemies[i].beams <= 0){
+						for(var k = 0; k < 40; ++k){
+							tempParticle = {};
+							tempParticle.x = Math.floor(Math.random() * 1200);
+							tempParticle.y = Math.floor(Math.random() * 600);
+							tempParticle.charge = 80;
+							tempParticle.damage = 100;
+							tempParticle.radius = 100;
+							tempParticle.chargeMax = 80;
+							tempParticle.type = "boss1Beam";
+							enemyParticles.push(tempParticle);
+						}
+						enemies[i].beams = 320;
+					}
+					if (enemies[i].minionSpawn <= 0){
+						if (Player1dead == false){
+							var tempEnemy = {};
+							tempEnemy.x = Player1x + 100;
+							tempEnemy.y = Player1y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player1x - 100;
+							tempEnemy.y = Player1y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player1x;
+							tempEnemy.y = Player1y + 100;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player1x;
+							tempEnemy.y = Player1y - 100;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							enemies[i].minionSpawn = 320;
+						}
+						///////////////////////////////////////////////////
+						if (Player2dead == false){
+							var tempEnemy = {};
+							tempEnemy.x = Player2x;
+							tempEnemy.y = Player2y + 100;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player2x;
+							tempEnemy.y = Player2y - 100;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player2x + 100;
+							tempEnemy.y = Player2y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							var tempEnemy = {};
+							tempEnemy.x = Player2x - 100;
+							tempEnemy.y = Player2y;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = -1;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							enemies.push(tempEnemy);
+							enemies[i].minionSpawn = 320;
+						}
+					}
+				}
+			}		
+			if (enemies[i].level == 102){
+				--enemies[i].phaseTimer;
+				if (enemies[i].stage == 1){
+					if (enemies[i].phase == 1){
+						--enemies[i].spread;
+						if ((enemies[i].spread % 10) == 1 && enemies[i].spread < 200){
+							tempParticle = {};
+							tempParticle.x = 0;
+							tempParticle.y = Math.floor(Math.random() * 600);
+							tempParticle.damage = 30;
+							tempParticle.radius = 10;
+							tempParticle.type = "boss2Beam";
+							enemyParticles.push(tempParticle);
+						}
+						if (enemies[i].spread <= 0){
+							enemies[i].spread = 320;
+						}
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 400;
+							enemies[i].phase = 2;
+						}
+					}
+					else if (enemies[i].phase == 2){
+						Player1x -= 3;
+						Player2x -= 3;
+						--enemies[i].corsair;
+						if (enemies[i].corsair == 1){
+							tempParticle = {};
+							if (Math.random() > .5 || Player2dead == true){
+								tempParticle.x = Player1x;
+								tempParticle.y = Player1y;
+								if (Player1dead == true){
+									tempParticle.x = Player2x;
+									tempParticle.y = Player2y;
+								}
+							}
+							else {
+								tempParticle.x = Player2x;
+								tempParticle.y = Player2y;
+							}
+							tempParticle.charge = 30;
+							tempParticle.damage = 50;
+							tempParticle.radius = 40;
+							tempParticle.chargeMax = 40;
+							tempParticle.type = "boss1Beam";
+							enemyParticles.push(tempParticle);
+						}
+						if (enemies[i].corsair <= 0){
+							enemies[i].corsair = 50;
+						}
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 400;
+							enemies[i].phase = 3;
+						}	
+					}
+					else if (enemies[i].phase == 3){
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 800;
+							enemies[i].phase = 1;
+						}
+						if (enemies[i].phaseTimer % 10 == 1 && enemies[i].phaseTimer > 200){
+							var tempEnemy = {};
+							tempEnemy.x = Math.floor(Math.random() * 800 + 300);
+							tempEnemy.y = Math.floor(Math.random() * 500 + 50);
+							tempEnemy.dx = 0;
+							tempEnemy.dy = 0;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = 0;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							tempEnemy.charge = 0;
+							if (Math.random() > .95){
+								tempEnemy.heal = true;
+							}
+							else{
+								tempEnemy.heal = false;
+							}
+							enemies.push(tempEnemy);
+						}
+					}
+				}
+				if (enemies[i].stage == 2){
+					if (enemies[i].phase == 1){
+						--enemies[i].spread;
+						if ((enemies[i].spread % 7) == 1 && enemies[i].spread > 300){
+							tempParticle = {};
+							tempParticle.x = 0;
+							tempParticle.y = Math.floor(Math.random() * 600);
+							tempParticle.damage = 30;
+							tempParticle.radius = 10;
+							tempParticle.type = "boss2Beam";
+							enemyParticles.push(tempParticle);
+						}
+						if (enemies[i].spread <= 0){
+							enemies[i].spread = 700;
+						}
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 400;
+							enemies[i].phase = 2;
+						}
+					}
+					else if (enemies[i].phase == 2){
+						Player1x -= 4;
+						Player2x -= 4;
+						--enemies[i].corsair;
+						if (enemies[i].corsair == 1){
+							tempParticle = {};
+							if (Math.random() > .5 || Player2dead == true){
+								tempParticle.x = Player1x;
+								tempParticle.y = Player1y;
+								if (Player1dead == true){
+									tempParticle.x = Player2x;
+									tempParticle.y = Player2y;
+								}
+							}
+							else {
+								tempParticle.x = Player2x;
+								tempParticle.y = Player2y;
+							}
+							tempParticle.charge = 30;
+							tempParticle.damage = 50;
+							tempParticle.radius = 40;
+							tempParticle.chargeMax = 40;
+							tempParticle.type = "boss1Beam";
+							enemyParticles.push(tempParticle);
+						}
+						if (enemies[i].corsair <= 0){
+							enemies[i].corsair = 40;
+						}
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 400;
+							enemies[i].phase = 3;
+						}	
+					}
+					else if (enemies[i].phase == 3){
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 800;
+							enemies[i].phase = 1;
+						}
+						if (enemies[i].phaseTimer % 8 == 1 && enemies[i].phaseTimer > 200){
+							var tempEnemy = {};
+							tempEnemy.x = Math.floor(Math.random() * 800 + 300);
+							tempEnemy.y = Math.floor(Math.random() * 500 + 50);
+							tempEnemy.dx = 0;
+							tempEnemy.dy = 0;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = 0;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							tempEnemy.charge = 0;
+							if (Math.random() > .95){
+								tempEnemy.heal = true;
+							}
+							else{
+								tempEnemy.heal = false;
+							}
+							enemies.push(tempEnemy);
+						}
+					}
+				}
+				if (enemies[i].stage == 3){
+					if (enemies[i].phase == 1){
+						--enemies[i].spread;
+						if ((enemies[i].spread % 4) == 1 && enemies[i].spread > 300){
+							tempParticle = {};
+							tempParticle.x = 0;
+							tempParticle.y = Math.floor(Math.random() * 600);
+							tempParticle.damage = 30;
+							tempParticle.radius = 10;
+							tempParticle.type = "boss2Beam";
+							enemyParticles.push(tempParticle);
+						}
+						if (enemies[i].spread <= 0){
+							enemies[i].spread = 900;
+						}
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 400;
+							enemies[i].phase = 2;
+						}
+					}
+					else if (enemies[i].phase == 2){
+						Player1x -= 5;
+						Player2x -= 5;
+						--enemies[i].corsair;
+						if (enemies[i].corsair == 1){
+							tempParticle = {};
+							if (Math.random() > .5 || Player2dead == true){
+								tempParticle.x = Player1x;
+								tempParticle.y = Player1y;
+								if (Player1dead == true){
+									tempParticle.x = Player2x;
+									tempParticle.y = Player2y;
+								}
+							}
+							else {
+								tempParticle.x = Player2x;
+								tempParticle.y = Player2y;
+							}
+							tempParticle.charge = 30;
+							tempParticle.damage = 50;
+							tempParticle.radius = 40;
+							tempParticle.chargeMax = 40;
+							tempParticle.type = "boss1Beam";
+							enemyParticles.push(tempParticle);
+						}
+						if (enemies[i].corsair <= 0){
+							enemies[i].corsair = 30;
+						}
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 400;
+							enemies[i].phase = 3;
+						}	
+					}
+					else if (enemies[i].phase == 3){
+						if (enemies[i].phaseTimer <= 0){
+							enemies[i].phaseTimer = 800;
+							enemies[i].phase = 1;
+						}
+						if (enemies[i].phaseTimer % 6 == 1 && enemies[i].phaseTimer > 200){
+							var tempEnemy = {};
+							tempEnemy.x = Math.floor(Math.random() * 800 + 300);
+							tempEnemy.y = Math.floor(Math.random() * 500 + 50);
+							tempEnemy.dx = 0;
+							tempEnemy.dy = 0;
+							tempEnemy.angleToAttack = 0;
+							tempEnemy.OKPosition = false;
+							tempEnemy.Originalx = tempEnemy.x;
+							tempEnemy.Originaly = tempEnemy.y;
+							tempEnemy.hp = 1;
+							tempEnemy.knockback = 0;
+							tempEnemy.angleKnockback = 0;
+							tempEnemy.level = 0;
+							tempEnemy.width = 10;
+							tempEnemy.knockbackStrength = 0;
+							tempEnemy.charge = 0;
+							if (Math.random() > .95){
+								tempEnemy.heal = true;
+							}
+							else{
+								tempEnemy.heal = false;
+							}
+							enemies.push(tempEnemy);
+						}
+					}
+				}
+			}
+		}
+	}
+	var enemyParticles = [];
+	function RenderEnemyParticles(){
+		for (var i = 0; i < enemyParticles.length; ++i){
+			if (enemyParticles[i].type == "boss1Beam"){
+				--enemyParticles[i].charge;
+				context.beginPath();
+				context.strokeStyle = "purple";
+				var percentDone = enemyParticles[i].charge/(enemyParticles[i].chargeMax);
+				context.arc(enemyParticles[i].x, enemyParticles[i].y, enemyParticles[i].radius, Math.PI, (2 * Math.PI * (1/percentDone)), false);
+				context.stroke();
+				context.closePath();
+				if (enemyParticles[i].charge <= 0){
+					context.fillStyle = "red";
+					context.beginPath();
+					context.arc(enemyParticles[i].x, enemyParticles[i].y, enemyParticles[i].radius, 0, 2 * Math.PI, false);
+					context.fill();
+					context.closePath();
+					var xgap1 = Player1x - enemyParticles[i].x;
+					var ygap1 = Player1y - enemyParticles[i].y;
+					var xgap2 = Player2x - enemyParticles[i].x;
+					var ygap2 = Player2y - enemyParticles[i].y;
+					var gap1 = Math.sqrt(xgap1 * xgap1 + ygap1 * ygap1);
+					var gap2 = Math.sqrt(xgap2 * xgap2 + ygap2 * ygap2);
+					if (gap1 < enemyParticles[i].radius + 10){
+						Player1hp -= enemyParticles[i].damage;
+					}
+					if (gap2 < enemyParticles[i].radius + 10){
+						Player2hp -= enemyParticles[i].damage;
+					}
+					enemyParticles.splice(i,1);
+					continue;
+				}
+			}
+			if (enemyParticles[i].type == "boss2Beam"){
+				enemyParticles[i].x += 3;
+				context.fillStyle = "red";
+				context.beginPath();
+				context.arc(enemyParticles[i].x, enemyParticles[i].y, enemyParticles[i].radius, 0, 2 * Math.PI, false);
+				context.fill();
+				context.closePath();
+				var xgap1 = Player1x - enemyParticles[i].x;
+				var ygap1 = Player1y - enemyParticles[i].y;
+				var xgap2 = Player2x - enemyParticles[i].x;
+				var ygap2 = Player2y - enemyParticles[i].y;
+				var gap1 = Math.sqrt(xgap1 * xgap1 + ygap1 * ygap1);
+				var gap2 = Math.sqrt(xgap2 * xgap2 + ygap2 * ygap2);
+				if (gap1 < enemyParticles[i].radius + 10){
+					Player1hp -= enemyParticles[i].damage;
+					enemyParticles.splice(i,1);
+					continue;
+				}
+				if (gap2 < enemyParticles[i].radius + 10){
+					Player2hp -= enemyParticles[i].damage;
+					enemyParticles.splice(i,1);
+					continue;
+				}
+				if(enemyParticles[i].x >= 1300){
+					enemyParticles.splice(i,1);
+					continue;
+				}
+			}		
+		}
+	}
+	function RenderEnemyHelper1(x, y){
+		for (var i = 0; i < immovable.length; ++i){
+			if(x > (immovable[i].x - 10) &&  x < (immovable[i].x + 10 + immovable[i].width) &&
+			   y > (immovable[i].y - 10) &&  y < (immovable[i].y + 10 + immovable[i].height)){
+			   return false;
+			}
+		}
+		return true;
+	}
+	function RenderEnemyHelper2(x,y){
+		for (var i = 0; i < immovable.length; ++i){
+			if(x > (immovable[i].x - 20) &&  x < (immovable[i].x + 20 + immovable[i].width) &&
+			   y > (immovable[i].y - 20) &&  y < (immovable[i].y + 20 + immovable[i].height)){
+			   return false;
+			}
+		}
+		return true;
+	}	
+	var fireball1 = [];
+	var fireball1cd = 0;
+	var fireball2cd = 0;
+	var scatter1cd = 0;
+	var scatter2cd = 0;
+	var break1cd = 0;
+	var break2cd = 0;
+	function createFireball(Player){
+		if(Player == 1 && fireball1cd <= 1){
+			var tempFireball = {};
+			tempFireball.x = Player1x + 10;
+			tempFireball.y = Player1y + 10;
+			tempFireball.dx = 9*(Math.cos(rotation1 * Math.PI/180));
+			tempFireball.dy = 9*(Math.sin(rotation1 * Math.PI/180))
+			tempFireball.radius = 10;
+			tempFireball.life = 100;
+			tempFireball.type = "fireball";
+			fireball1.push(tempFireball);
+			fireball1cd = 40;
+		}
+		if(Player == 2 && fireball2cd <= 1){
+			var tempFireball = {};
+			tempFireball.x = Player2x + 10;
+			tempFireball.y = Player2y + 10;
+			tempFireball.dx = 10*(Math.cos(rotation2 * Math.PI/180));
+			tempFireball.dy = 10*(Math.sin(rotation2 * Math.PI/180));
+			tempFireball.radius = 10;
+			tempFireball.life = 100;
+			tempFireball.type = "fireball";
+			fireball1.push(tempFireball);
+			fireball2cd = 40;
+		}
+	}
+	var scatterNumber1 = 40;
+	var scatterNumber2 = 40;
+	function createScatter(Player){
+		if (Player == 1 && scatter1cd <= 1){
+			scatterNumber1 = 0;
+			scatter1cd = 120;
+		}
+		if (Player == 2 && scatter2cd <= 1){
+			scatterNumber2 = 0;
+			scatter2cd = 120;
+		}
+	}
+	function createBreak(Player){
+		if (Player == 1 && break1cd <= 1){
+			var tempBreak = {};
+			tempBreak.x = Player1x + 10;
+			tempBreak.y = Player1y + 10;
+			tempBreak.radius = 0;
+			tempBreak.life = 5;
+			tempBreak.type = "break";
+			fireball1.push(tempBreak);
+			break1cd = 200;
+		}
+		if (Player == 2 && break2cd <=1){
+			var tempBreak = {};
+			tempBreak.x = Player2x + 10;
+			tempBreak.y = Player2y + 10;
+			tempBreak.radius = 0;
+			tempBreak.life = 5;
+			tempBreak.type = "break";
+			fireball1.push(tempBreak);
+			break2cd = 200;
+		}
+	}
+
+	var splice1 = false;
+	function renderFireballs(){
+		if (scatterNumber1 < 25){
+			for (var i = 0; i < 2; ++i){
+				tempScatter = {};
+				tempScatter.type = "scatter";
+				tempScatter.x = Player1x + 10;
+				tempScatter.y = Player1y + 10;
+				tempScatter.life = 30;
+				tempScatter.radius = 4;
+				var tempRandom = Math.random() - .5;
+				tempScatter.dx = 6 * (Math.cos((rotation1 - tempRandom * 30) * Math.PI/180));
+				tempScatter.dy = 6 * (Math.sin((rotation1 - tempRandom * 30) * Math.PI/180));	
+				fireball1.push(tempScatter);
+				scatter1cd = 120; 
+				++scatterNumber1;
+			}
+		}
+		if (scatterNumber2 < 25){
+			for (var i = 0; i < 2; ++i){
+				tempScatter = {};
+				tempScatter.type = "scatter";
+				tempScatter.x = Player2x + 10;
+				tempScatter.y = Player2y + 10;
+				tempScatter.life = 30;
+				tempScatter.radius = 4;
+				var tempRandom = Math.random() - .5;
+				tempScatter.dx = 6 * (Math.cos((rotation2 - tempRandom * 30) * Math.PI/180));
+				tempScatter.dy = 6 * (Math.sin((rotation2 - tempRandom * 30) * Math.PI/180));	
+				fireball1.push(tempScatter);
+				scatter2cd = 120; 
+				++scatterNumber2;
+			}
+		}
+		--fireball1cd;
+		--fireball2cd;
+		--scatter1cd;
+		--scatter2cd;
+		--break1cd;
+		--break2cd;
+		for(var i = 0; i < fireball1.length; ++i){
+			splice1 = false
+			--fireball1[i].life;
+			if(fireball1[i].life <= 0){
+				fireball1.splice(i,1);
+				splice1 = true;
+				continue;
+			}
+			if (fireball1[i].type == "fireball"){
+				context.fillStyle = "red";
+				fireball1[i].x += fireball1[i].dx;
+				fireball1[i].y += fireball1[i].dy;
+				context.beginPath();
+				context.arc(fireball1[i].x, fireball1[i].y, fireball1[i].radius, 0, 2*Math.PI);
+				context.closePath();
+				context.fill();
+			}
+			else if (fireball1[i].type == "scatter"){
+				context.fillStyle = "white";
+				fireball1[i].x += fireball1[i].dx;
+				fireball1[i].y += fireball1[i].dy;
+				context.beginPath();
+				context.arc(fireball1[i].x, fireball1[i].y, fireball1[i].radius, 0, 2*Math.PI);
+				context.closePath();
+				context.fill();
+			}
+			else if (fireball1[i].type == "break"){
+				context.strokeStyle = "white";
+				fireball1[i].radius += 20;
+				context.beginPath();
+				context.arc(fireball1[i].x, fireball1[i].y, fireball1[i].radius, 0, 2*Math.PI);
+				context.stroke();
+				context.closePath();
+			}
+			if (fireball1[i].x >= maxx || fireball1[i].x <= 0 || fireball1[i].y >= maxy || fireball1[i].y <= 0 && fireball1[i].type != "break"){
+				splice1 = true;
+				fireball1.splice(i,1);
+				continue;
+			}	
+			for (var j = 0; j < immovable.length; ++j){
+				if (splice1 == true){
+					continue;
+				}
+				if (fireball1[i].x >= (immovable[j].x - fireball1[i].radius) && fireball1[i].x <= (immovable[j].x + fireball1[i].radius +
+				    immovable[j].width) && fireball1[i].y >= (immovable[j].y - fireball1[i].radius) && fireball1[i].y <= (immovable[j].y +
+				    fireball1[i].radius + immovable[j].height) && fireball1[i].type != "break"){
+					splice1 = true;
+					fireball1.splice(i,1);
+					continue;
+				}
+			}
+			for (var k = 0; k < enemies.length; ++k){
+				if (splice1 == true){
+					continue;
+				}
+				var distancex = ((enemies[k].x + enemies[k].width/2) - fireball1[i].x);
+				var distancey = ((enemies[k].y + enemies[k].width/2) - fireball1[i].y);
+				var distance = Math.sqrt(distancex * distancex + distancey * distancey);
+				if (distance <= (fireball1[i].radius + 5) && (enemies[k].level == 1 || enemies[k].level == -1 || enemies[k].level == 3)){
+					if (fireball1[i].type == "fireball"){
+						enemies[k].hp -= 50;
+						enemies[k].knockback += 5;
+						enemies[k].knockbackStrength = 8;
+					}
+					else if (fireball1[i].type == "scatter"){
+						enemies[k].hp -= 5;
+						enemies[k].knockbackStrength = 3;
+						enemies[k].knockback += 1;
+					}
+					else if (fireball1[i].type == "break"){
+						enemies[k].hp -= 30;
+						enemies[k].knockback += 2;	  
+						if (distance < 25){
+					 		enemies[k].knockbackStrength = 80;
+						}
+						else if (distance < 50){
+							enemies[k].knockbackStrength = 60;
+						}
+						else if (distance < 75){
+							enemies[k].knockbackStrength = 40;
+						}
+						else{
+							enemies[k].knockbackStrength = 20;
+						}
+					}
+					enemies[k].angleKnockback = Math.atan2(distancex, distancey);
+					if (enemies[k].hp <= 0){
+						if (enemies[k].level == 1 || enemies[k].level == 3){
+							Gold += 20*enemies[k].level;
+							goldEarned += 20*enemies[k].level;
+							var tempTexts = {};
+							tempTexts.colorType = "yellow";
+							tempTexts.number = "+ " + 20*enemies[k].level;
+							tempTexts.life = 40;
+							tempTexts.x = enemies[k].x + 10;
+							tempTexts.y = enemies[k].y - 5;
+							texts.push(tempTexts);
+							enemies.splice(k,1);
+						}
+						else if (enemies[k].level == -1){
+							Gold += 5;
+							goldEarned += 5;
+							var tempTexts = {};
+							tempTexts.colorType = "yellow";
+							tempTexts.number = "+ " + 5;
+							tempTexts.life = 40;
+							tempTexts.x = enemies[k].x + 10;
+							tempTexts.y = enemies[k].y - 5;
+							texts.push(tempTexts);
+							enemies.splice(k,1);
+						}
+					}
+					if (fireball1[i].type != "break"){
+						fireball1.splice(i,1);
+					}
+					splice1 = true;
+					continue;
+				}
+				if (enemies[k].level == 0 && distance <= (fireball1[i].radius + 5)){
+					if (fireball1[i].type == "fireball"){
+						enemies[k].knockback = 25;
+						enemies[k].knockbackStrength = 25;
+					}
+					else if (fireball1[i].type == "scatter"){
+						enemies[k].knockbackStrength = 15;
+						enemies[k].knockback = 15;
+					}
+					else if (fireball1[i].type == "break"){
+						enemies[k].knockback = 15;	  
+						if (distance < 25){
+					 		enemies[k].knockbackStrength = 80;
+						}
+						else if (distance < 50){
+							enemies[k].knockbackStrength = 60;
+						}
+						else if (distance < 75){
+							enemies[k].knockbackStrength = 40;
+						}
+						else{
+							enemies[k].knockbackStrength = 20;
+						}
+					}
+					enemies[k].angleKnockback = Math.atan2(distancex, distancey);
+					enemies[k].dx += Math.sin(enemies[k].angleKnockback)*enemies[k].knockbackStrength;
+					enemies[k].dy += Math.cos(enemies[k].angleKnockback)*enemies[k].knockbackStrength;
+					if (enemies[k].charge <= 0){
+						enemies.splice(k,1);
+					}
+					if (fireball1[i].type != "break"){
+						fireball1.splice(i,1);
+					}
+					splice1 = true;
+					continue;
+				}
+				if (enemies[k].level == 2 && distance <= (fireball1[i].radius + 10)){
+					if (fireball1[i].type == "fireball"){
+						enemies[k].hp -= 50;
+						enemies[k].knockbackStrength = 4;
+						enemies[k].knockback += 5;
+					}
+					else if (fireball1[i].type == "scatter"){
+						enemies[k].hp -= 5;
+						enemies[k].knockbackStrength = 2;
+						enemies[k].knockback += 1;
+					}
+					else if (fireball1[i].type == "break"){
+						enemies[k].hp -= 30;
+						enemies[k].knockback += 2;	  
+						if (distance < 25){
+					 		enemies[k].knockbackStrength = 50;
+						}
+						else if (distance < 50){
+							enemies[k].knockbackStrength = 30;
+						}
+						else if (distance < 75){
+							enemies[k].knockbackStrength = 20;
+						}
+						else{
+							enemies[k].knockbackStrength = 10;
+						}
+					}
+					enemies[k].angleKnockback = Math.atan2(distancex, distancey);
+					if (enemies[k].hp <= 0){
+						Gold += 20*enemies[k].level;
+						goldEarned += 20*enemies[k].level;
+						var tempTexts = {};
+						tempTexts.colorType = "yellow";
+						tempTexts.number = "+ " + 20*enemies[k].level;
+						tempTexts.life = 40;
+						tempTexts.x = enemies[k].x + 10;
+						tempTexts.y = enemies[k].y - 5;
+						texts.push(tempTexts);
+						var tempEnemy = {};
+						tempEnemy.x = enemies[k].x - 5;
+						tempEnemy.y = enemies[k].y - 5;
+						tempEnemy.angleToAttack = 0;
+						tempEnemy.OKPosition = false;
+						tempEnemy.Originalx = tempEnemy.x;
+						tempEnemy.Originaly = tempEnemy.y;
+						tempEnemy.hp = 100;
+						tempEnemy.knockback = 3;
+						tempEnemy.angleKnockback = 0;
+						tempEnemy.knockbackStrength = 8;
+						tempEnemy.level = 1;
+						tempEnemy.width = 10;
+						enemies.push(tempEnemy);
+						context.fillRect(tempEnemy.x, tempEnemy.y, 10, 10);
+						var tempEnemy = {};
+						tempEnemy.x = enemies[k].x + 10;
+						tempEnemy.y = enemies[k].y + 10;
+						tempEnemy.angleToAttack = 0;
+						tempEnemy.OKPosition = false;
+						tempEnemy.knockbackStrength = 8;
+						tempEnemy.Originalx = tempEnemy.x;
+						tempEnemy.Originaly = tempEnemy.y;
+						tempEnemy.hp = 100;
+						tempEnemy.knockback = 3;
+						tempEnemy.angleKnockback = Math.PI;
+						tempEnemy.level = 1;
+						tempEnemy.width = 10;
+						enemies.push(tempEnemy);
+						context.fillRect(tempEnemy.x, tempEnemy.y, 10, 10);
+						enemies.splice(k,1);
+					}
+					if (fireball1[i].type != "break"){
+						fireball1.splice(i,1);
+					}
+					splice1 = true;
+					continue;		
+				}
+				if (enemies[k].level == 101 && (fireball1[i].x > enemies[k].x - fireball1[i].radius) && (fireball1[i].x < enemies[k].x + 
+				    fireball1[i].radius + 96) && (fireball1[i].y > enemies[k].y - fireball1[i].radius) && (fireball1[i].y < enemies[k].y +
+				    fireball1[i].radius + 64)){	
+					if (fireball1[i].type == "fireball"){
+						enemies[k].hp -= 50;
+					}
+					else if (fireball1[i].type == "scatter"){
+						enemies[k].hp -= 3;
+					}
+					else if (fireball1[i].type == "break"){
+						enemies[k].hp -= 20;
+					}
+					enemies[k].angleKnockback = 0;
+					if (enemies[k].hp <= 0){
+						if (enemies[k].stage == 1){
+							enemies[k].stage = 2;
+							enemies[k].hp = 3000;
+							enemies[k].teleportTime = 0;
+						}
+						else if (enemies[k].stage == 2){
+							enemies[k].stage = 3;
+							enemies[k].hp = 3000;
+							enemies[k].teleportTime = 0;
+							enemies[k].beams = 40;
+							enemies[k].minionSpawn = 160;
+						}
+						else if (enemies[k].stage == 3){
+							Gold += 500;
+							goldEarned += 500;
+							var tempTexts = {};
+							tempTexts.colorType = "yellow";
+							tempTexts.number = "+ " + 500;
+							tempTexts.life = 40;
+							tempTexts.x = enemies[k].x + 10;
+							tempTexts.y = enemies[k].y - 5;
+							texts.push(tempTexts);
+							enemies.splice(k,1);
+						}
+					}
+					if (fireball1[i].type != "break"){
+						fireball1.splice(i,1);
+					}
+					splice1 = true;
+					continue;
+				}
+				if (enemies[k].level == 102 && ((fireball1[i].x < enemies[k].x + fireball1[i].radius + 250) && (fireball1[i].y > 
+			  	    enemies[k].y - fireball1[i].radius))){
+					if (fireball1[i].type == "fireball"){
+						enemies[k].hp -= 50;
+					}
+					else if (fireball1[i].type == "scatter"){
+						enemies[k].hp -= 3;
+					}
+					else if (fireball1[i].type == "break"){
+						enemies[k].hp -= 20;
+					}
+					enemies[k].angleKnockback = 0;
+					if (enemies[k].hp <= 0){
+						if (enemies[k].stage == 1){
+							enemies[k].stage = 2;
+							enemies[k].hp = 6000;
+						}
+						else if (enemies[k].stage == 2){
+							enemies[k].stage = 3;
+							enemies[k].hp = 6000;
+						}
+						else if (enemies[k].stage == 3){
+							Gold += 6000;
+							goldEarned += 6000;
+							var tempTexts = {};
+							tempTexts.colorType = "yellow";
+							tempTexts.number = "+ " + 6000;
+							tempTexts.life = 40;
+							tempTexts.x = 250;
+							tempTexts.y = 300;
+							texts.push(tempTexts);
+							enemies.splice(k,1);
+						}
+					}
+					if (fireball1[i].type != "break"){
+						fireball1.splice(i,1);
+					}
+					splice1 = true;
+					continue;				
+				}
+			}
+		}
+	}
+	var texts = [];
+	function RenderTexts(){
+		context.font = "10px sans-serif";
+		for (var i = 0; i < texts.length; ++i){
+			if (texts[i].colorType == "yellow"){
+				context.fillStyle = "yellow";
+			}
+			else if (texts[i].colorType == "black"){
+				context.fillStyle = "black";
+			}
+			else if (texts[i].colorType == "red"){
+				context.fillStyle = "red";
+			}
+			--texts[i].life;
+			--texts[i].y;
+			context.fillText(texts[i].number, texts[i].x, texts[i].y);
+			if (texts[i].life <= 0){
+				texts.splice(i,1);
+			}
+		}
+		context.font = "20px sans-serif";
+	}
+	var quickstep1 = 0;
+	var quickstepcd1 = 0;
+	var quickstep2 = 0;
+	var quickstepcd2 = 0;
+
+	var rightPress1 = 0;
+	var rightUp1 = 0;
+	var rightPressTwice1 = 0;
+	var rightDouble1 = false;
+	var rightPressGood1 = false;
+	var rightUpGood1 = false;
+
+	var frontPress1 = 0;
+	var frontUp1 = 0;
+	var frontPressTwice1 = 0;
+	var frontDouble1 = false;
+	var frontPressGood1 = false;
+	var frontUpGood1 = false;
+
+	var leftPress1 = 0;
+	var leftUp1 = 0;
+	var leftPressTwice1 = 0;
+	var leftDouble1 = false;
+	var leftPressGood1 = false;
+	var leftUpGood1 = false;
+
+	var rightPress2 = 0;
+	var rightUp2 = 0;
+	var rightPressTwice2 = 0;
+	var rightDouble2 = false;
+	var rightPressGood2 = false;
+	var rightUpGood2 = false;
+	var leftPress2 = 0;
+
+	var leftUp2 = 0;
+	var leftPressTwice2 = 0;
+	var leftDouble2 = false;
+	var leftPressGood2 = false;
+	var leftUpGood2 = false;
+
+	var frontPress2 = 0;
+	var frontUp2 = 0;
+	var frontPressTwice2 = 0;
+	var frontDouble2 = false;
+	var frontPressGood2 = false;
+	var frontUpGood2 = false;
+	function RenderPlayer1AndPlayer2(){
+		if (Player1hp <= 0){
+			Player1dead = true;
+		}
+		if (Player2hp <= 0){
+			Player2dead = true;
+		}
+		if (Player1dead == false){
+			angleInRadians = rotation1 * Math.PI/180;
+			context.save();
+			context.setTransform(1,0,0,1,0,0);
+			context.translate(Player1x + .5*width, Player1y + .5*height);
+			context.rotate(angleInRadians);
+			//Player1 is getting Drawn
+			context.strokeStyle = "white";
+			context.fillStyle = "white";
+			context.beginPath();
+			context.moveTo(-10,-10);
+			context.lineTo(10,0);
+			context.lineTo(-10,10);
+			context.lineTo(0,0);
+			context.lineTo(-10,-10);
+			context.stroke();
+			context.closePath();
+			context.fill();
+			context.restore();
+			context.fillStyle = "red";
+			context.fillRect(Player1x - 5, Player1y - 10, Player1hp * 30/Player1hpMax, 5);
+			//player1 controls
+			if (keyPressList[39]==true){
+				rotation1 += rotationalVelocity;
+				if (rightDouble1 == true){
+					rightPressTwice1 = new Date();
+				}
+				if (rightPressTwice1 - rightUp1 <= 100 && rightDouble1 == true && (rightPressTwice1 - leftPress1 > 100)){
+					rotation1 += 170;
+					rightPress1 = 0;
+					rightPressTwice1 = 0;
+					rightDouble1 = false;
+					rightPressGood1 = false;
+
+				}
+				else if (rightPressGood1){
+					rightPressGood1 = false;
+					rightPress1 = new Date();
+					rightUpGood1 = true;
+				}
+			}
+			else if (keyPressList[39] == false){
+				if (rightUpGood1){
+					rightUp1 = new Date();
+					rightUpGood1 = false;
+				}
+				rightPressGood1 = true;
+				if (rightUp1 - rightPress1 <= 100){
+					rightDouble1 = true;
+				}				
+			}
+			if (keyPressList[40]==true){
+				var angleInRadians = rotation1 * Math.PI/180;
+				Player1Facingx = Math.cos(angleInRadians);
+				Player1Facingy = Math.sin(angleInRadians);
+				Player1x -= 3*Player1Facingx;
+				Player1y -= 3*Player1Facingy;
+			}
+			--quickstep1;
+			--quickstepcd1;
+			if (quickstep1 > 1){
+				Player1Facingx = Math.cos(angleInRadians);
+				Player1Facingy = Math.sin(angleInRadians);
+				Player1Velocity = 3* Player1Velocity;
+				Player1x += Player1Velocity*Player1Facingx;
+				Player1y += Player1Velocity*Player1Facingy;
+			}
+			
+			if (keyPressList[38]==true){
+				if (quickstep1 <= 0){
+					var angleInRadians = rotation1 * Math.PI/180;
+					Player1Facingx = Math.cos(angleInRadians);
+					Player1Facingy = Math.sin(angleInRadians);
+					Player1x += Player1Velocity*Player1Facingx;
+					Player1y += Player1Velocity*Player1Facingy;
+				}
+				if (frontDouble1 == true){
+					frontPressTwice1 = new Date();
+				}
+				if (frontPressTwice1 - frontUp1 <= 100 && frontDouble1 == true && itemShop[2].bought == true && quickstepcd1 <= 0){
+					frontPress1 = 0;
+					quickstep1 = 15;
+					quickstepcd1 = 200;
+					frontPressTwice1 = 0;
+					frontDouble1 = false;
+					frontPressGood1 = false;
+
+				}
+				else if (frontPressGood1){
+					frontPressGood1 = false;
+					frontPress1 = new Date();
+					frontUpGood1 = true;
+				}
+			}
+			else if (keyPressList[38] == false){
+				if (frontUpGood1){
+					frontUp1 = new Date();
+					frontUpGood1 = false;
+				}
+				frontPressGood1 = true;
+				if (frontUp1 - frontPress1 <= 150){
+					frontDouble1 = true;
+				}				
+			}
+			if (keyPressList[37]==true){
+				rotation1 -= rotationalVelocity;
+				if (leftDouble1 == true){
+					leftPressTwice1 = new Date();
+				}
+				if (leftPressTwice1 - leftUp1 <= 100 && leftDouble1 == true && (leftPressTwice1 - rightPress1 > 100)){
+					rotation1 -= 170;
+					leftPress1 = 0;
+					leftPressTwice1 = 0;
+					leftDouble1 = false;
+					leftPressGood1 = false;
+
+				}
+				else if (leftPressGood1){
+					leftPressGood1 = false;
+					leftPress1 = new Date();
+					leftUpGood1 = true;
+				}
+			}
+			else if (keyPressList[37] == false){
+				if (leftUpGood1){
+					leftUp1 = new Date();
+					leftUpGood1 = false;
+				}
+				leftPressGood1 = true;
+				if (leftUp1 - leftPress1 <= 100){
+					leftDouble1 = true;
+				}
+			}
+			if (keyPressList[221]==true){
+				//missle fireball/spell1
+				createFireball(1);
+			}
+			if (keyPressList[219]==true && itemShop[1].bought == true){
+				//Scatter
+				createScatter(1);
+			}
+			if (keyPressList[80] == true && itemShop[4].bought == true){
+				createBreak(1);
+			}
+			if (Player1x - 2 <= 0){
+				Player1x = 2;
+			}
+			if (Player1x + 22 >= 1250){
+				Player1x = 1228;
+			}
+			if (Player1y - 2 <= 0){
+				Player1y = 2;
+			}
+			if (Player1y + 22 >= 600){
+				Player1y = 578;
+			}
+			for (var j = 0; j < immovable.length; ++j){
+				if(Player1x > (immovable[j].x - 20) &&  Player1x < (immovable[j].x + immovable[j].width) &&
+				   Player1y > (immovable[j].y - 20) &&  Player1y < (immovable[j].y + immovable[j].height)){
+					if (Player1x >= (immovable[j].x - 20) && Player1x <= (immovable[j].x + immovable[j].width) && Player1y 
+					    >= (immovable[j].y - 20 + Player1Velocity) && Player1y <= (immovable[j].y + immovable[j].height - Player1Velocity)){
+						if (quickstep1 > 0){
+							Player1x -= Player1Velocity*Player1Facingx;
+						}
+						else if (keyPressList[38]==true){
+							Player1x -= Player1Velocity*Player1Facingx;
+						}
+						else if(keyPressList[40]==true){
+							Player1x += 3*Player1Facingx;
+						}
+					}
+					else if (Player1y <= (immovable[j].y + immovable[j].height + 5) && Player1y >= (immovable[j].y + .5 * immovable[j].height)){
+						if (quickstep1 > 0){
+							Player1y -= Player1Velocity*Player1Facingy;
+						}
+						if (keyPressList[38]==true && Player1Facingy < 0){
+							Player1y -= Player1Velocity*Player1Facingy;
+						}
+						else if(keyPressList[40]==true && Player1Facingy > 0){
+							Player1y += 3*Player1Facingy;
+						}
+					}
+					else if (Player1y >= (immovable[j].y - 20) && Player1y <= (immovable[j].y + .5 * immovable[j].height)){
+						if (quickstep1 > 0){
+							Player1y -= Player1Velocity*Player1Facingy;
+						}
+						if (keyPressList[38]==true && Player1Facingy > 0){
+							Player1y -= Player1Velocity*Player1Facingy;
+						}
+						else if(keyPressList[40]==true && Player1Facingy < 0){
+							Player1y += 3*Player1Facingy;
+						}
+					}
+				}
+			}
+			Player1Velocity = 5;
+		}
+
+
+
+		
+		if (Player2dead == false){
+			//Player2 is Getting Drawn
+			angleInRadians = rotation2 * Math.PI/180;
+			context.save();
+			context.setTransform(1,0,0,1,0,0);
+			context.translate(Player2x + .5*width, Player2y + .5*height);
+			context.rotate(angleInRadians);
+			//Player1 is getting Drawn
+			context.strokeStyle = "blue";
+			context.fillStyle = "blue";
+			context.beginPath();
+			context.moveTo(-10,-10); 
+			context.lineTo(10,0);
+			context.lineTo(-10,10);
+			context.lineTo(0,0);
+			context.lineTo(-10,-10);
+			context.stroke();
+			context.closePath();
+			context.fill();
+			context.restore();
+			//Player2 controls
+			context.fillStyle = "red";
+			context.fillRect(Player2x - 5, Player2y - 10, Player2hp * 30 / Player2hpMax, 5)
+						
+			if (keyPressList[70]==true){
+				rotation2 += rotationalVelocity;
+				if (rightDouble2 == true){
+					rightPressTwice2 = new Date();
+				}
+				if (rightPressTwice2 - rightUp2 <= 100 && rightDouble2 == true && (rightPressTwice2 - leftPress2 > 100)){
+					rotation2 += 170;
+					rightPress2 = 0;
+					rightPressTwice2 = 0;
+					rightDouble2 = false;
+					rightPressGood2 = false;
+
+				}
+				else if (rightPressGood2){
+					rightPressGood2 = false;
+					rightPress2 = new Date();
+					rightUpGood2 = true;
+				}
+			}
+			else if (keyPressList[70] == false){
+				if (rightUpGood2){
+					rightUp2 = new Date();
+					rightUpGood2 = false;
+				}
+				rightPressGood2 = true;
+				if (rightUp2 - rightPress2 <= 100){
+					rightDouble2 = true;
+				}
+			}
+			if (keyPressList[68]==true){
+				var angleInRadians = rotation2 * Math.PI/180;
+				Player2Facingx = Math.cos(angleInRadians);
+				Player2Facingy = Math.sin(angleInRadians);
+				Player2x -= 3*Player2Facingx;
+				Player2y -= 3*Player2Facingy;
+			}
+			--quickstep2;
+			--quickstepcd2;
+			if (quickstep2 > 1){
+				Player2Facingx = Math.cos(angleInRadians);
+				Player2Facingy = Math.sin(angleInRadians);
+				Player2Velocity = 3* Player2Velocity;
+				Player2x += Player2Velocity*Player2Facingx;
+				Player2y += Player2Velocity*Player2Facingy;
+			}
+			
+			if (keyPressList[69]==true){
+				if (quickstep2 <= 0){
+					var angleInRadians = rotation2 * Math.PI/180;
+					Player2Facingx = Math.cos(angleInRadians);
+					Player2Facingy = Math.sin(angleInRadians);
+					Player2x += Player2Velocity*Player2Facingx;
+					Player2y += Player2Velocity*Player2Facingy;
+				}
+				if (frontDouble2 == true){
+					frontPressTwice2 = new Date();
+				}
+				if (frontPressTwice2 - frontUp2 <= 100 && frontDouble2 == true && itemShop[2].bought == true && quickstepcd2 <= 0){
+					frontPress2 = 0;
+					quickstep2 = 15;
+					quickstepcd2 = 200;
+					frontPressTwice2 = 0;
+					frontDouble2 = false;
+					frontPressGood2 = false;
+
+				}
+				else if (frontPressGood2){
+					frontPressGood2 = false;
+					frontPress2 = new Date();
+					frontUpGood2 = true;
+				}
+			}
+			else if (keyPressList[69] == false){
+				if (frontUpGood2){
+					frontUp2 = new Date();
+					frontUpGood2 = false;
+				}
+				frontPressGood2 = true;
+				if (frontUp2 - frontPress2 <= 250){
+					frontDouble2 = true;
+				}				
+			}
+			if (keyPressList[83]==true){
+				rotation2 -= rotationalVelocity;
+				if (leftDouble2 == true){
+					leftPressTwice2 = new Date();
+				}
+				if (leftPressTwice2 - leftUp2 <= 100 && leftDouble2 == true && (leftPressTwice2 - rightPress2 > 100)){
+					rotation2 -= 170;
+					leftPress2 = 0;
+					leftPressTwice2 = 0;
+					leftDouble2 = false;
+					leftPressGood2 = false;
+
+				}
+				else if (leftPressGood2){
+					leftPressGood2 = false;
+					leftPress2 = new Date();
+					leftUpGood2 = true;
+				}
+			}
+			else if (keyPressList[83] == false){
+				if (leftUpGood2){
+					leftUp2 = new Date();
+					leftUpGood2 = false;
+				}
+				leftPressGood2 = true;
+				if (leftUp2 - leftPress2 <= 100){
+					leftDouble2 = true;
+				}
+			}
+			if (keyPressList[53]==true){
+				//spawn fireball/spell1
+				createFireball(2);
+			}
+			if (keyPressList[54]==true && itemShop[1].bought == true){
+				//spawn fireball/spell1
+				createScatter(2);
+			}
+			if (keyPressList[55] == true && itemShop[4].bought == true){
+				createBreak(2);
+			}			
+			if (Player2x - 2 <= 0){
+				Player2x = 2;
+			}
+			if (Player2x + 22 >= 1250){
+				Player2x = 1228;
+			}
+			if (Player2y - 2 <= 0){
+				Player2y = 2;
+			}
+			if (Player2y + 22 >= 600){
+				Player2y = 578;
+			}
+			for (var j = 0; j < immovable.length; ++j){
+				if(Player2x > (immovable[j].x - 20) &&  Player2x < (immovable[j].x + immovable[j].width) &&
+				   Player2y > (immovable[j].y - 20) &&  Player2y < (immovable[j].y + immovable[j].height)){
+					if (Player2x >= (immovable[j].x - 20) && Player2x <= (immovable[j].x + immovable[j].width)
+					  && Player2y >= immovable[j].y - 20 + Player2Velocity && Player2y <= (immovable[j].y + immovable[j].height - Player2Velocity)){
+						if (quickstep2 > 0){
+							Player2x -= Player2Velocity*Player1Facingx;
+						}
+						else if (keyPressList[69]==true){
+							Player2x -= Player2Velocity*Player2Facingx;
+						}
+						else if(keyPressList[68]==true){
+							Player2x += 3*Player2Facingx;
+						}
+					}
+					else if (Player2y <= (immovable[j].y + immovable[j].height + 5) && Player2y >= (immovable[j].y + .5 * immovable[j].height)){
+						if (quickstep2 > 0){
+							Player2y -= Player2Velocity*Player2Facingy;
+						}
+						if (keyPressList[69]==true && Player2Facingy < 0){
+							Player2y -= Player2Velocity*Player2Facingy;
+						}
+						else if(keyPressList[68]==true && Player2Facingy > 0){
+							Player2y += 3*Player2Facingy;
+						}
+					}
+					else if (Player2y >= (immovable[j].y - 20) && Player2y <= (immovable[j].y + .5 * immovable[j].height)){
+						if (quickstep2 > 0){
+							Player2y -= Player2Velocity*Player2Facingy;
+						}					
+						if (keyPressList[69]==true && Player2Facingy > 0){
+							Player2y -= Player2Velocity*Player2Facingy;
+						}
+						else if(keyPressList[68]==true && Player2Facingy < 0){
+							Player2y += 3*Player2Facingy;
+						}
+					}
+				}
+			}	
+		}
+		Player2Velocity = 5;
+	}
+	
+	
+	document.onkeydown=function(e){
+		e=e?e:window.event;
+		//ConsoleLog.log(e.keyCode + "down");
+		keyPressList[e.keyCode]=true;
+	}
+	document.onkeyup=function(e){
+		e=e?e:window.event;
+		//ConsoleLog.log(e.keyCode + "up");
+		keyPressList[e.keyCode]=false;
+	};
+	//var listener = new window.keypress.Listener();
+	
+	//*** application start
+	switchGameState(Game_Title_Screen);
+	//frameRateCounter=new FrameRateCounter();
+	//**** application loop
+	const FRAME_RATE=40;
+	var intervalTime=1000/FRAME_RATE;
+	
+	gameLoop();
+	
+	function gameLoop() {
+		runGame();
+		setTimeout(function() {
+			window.requestAnimationFrame(gameLoop, theCanvas);
+		}, intervalTime);
+	}
+	function setTextStyle() {
+		context.fillStyle    = "ffffff";
+		context.font         = '20px sans-serif';
+		context.textBaseline = 'top';
+	}
+	
+	function fillBackground() {
+		// draw background and text 
+		context.fillStyle = "#070055";
+		context.fillRect(minx, miny, maxx, maxy);
+			
+	}
+	
+}	
+
+//***** object prototypes *****
+
+//*** consoleLog util object
+//creat constructor
+function ConsoleLog(){
+	
+}
+
+//create function that will be added to the class
+console_log=function(message) {
+	if(typeof(console) !== 'undefined' && console != null) {
+		console.log(message);
+	}
+}
+//add class/static function to class by assignment
+ConsoleLog.log=console_log;
+
+//*** end console log object
+
+//*** FrameRateCounter  object prototype
+function FrameRateCounter() {
+	
+	this.lastFrameCount=0;
+	var dateTemp =new Date();
+	this.frameLast=dateTemp.getTime();
+	delete dateTemp;
+	this.frameCtr=0;
+}
+
+FrameRateCounter.prototype.countFrames=function() {
+	var dateTemp =new Date();	
+	this.frameCtr++;
+
+	if (dateTemp.getTime() >=this.frameLast+1000) {
+		ConsoleLog.log("frame event");
+		this.lastFrameCount=this.frameCtr;
+		this.frameLast=dateTemp.getTime();
+		this.frameCtr=0;
+	}
+	
+	delete dateTemp;
+}
+</script>
+</head>
+<body>
+<div style="position: absolute; top: 50px; left: 50px;">
+<canvas id="canvas" width="1250" height="600">
+ Your browser does not support the HTML 5 Canvas. 
+</canvas>
+</div>
+</body>
+</html>
